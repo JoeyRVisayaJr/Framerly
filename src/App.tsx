@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { BatchDropzone } from './components/BatchDropzone'
 import { FrameUploader } from './components/FrameUploader'
+import { VisualGrid } from './components/VisualGrid'
 import {
   clearFrame,
   decodeFrameFile,
@@ -8,11 +10,13 @@ import {
   saveFrame,
   type StoredFrame,
 } from './lib/frameStore'
+import { useBatchIngest } from './lib/useBatch'
 
 export default function App() {
   const [frame, setFrame] = useState<StoredFrame | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { pictures, loading: batchLoading, error: batchError, addFiles, clearBatch } = useBatchIngest()
 
   useEffect(() => {
     setFrame(loadFrame(window.localStorage))
@@ -62,6 +66,25 @@ export default function App() {
           onSelect={handleSelect}
           onClear={handleClear}
         />
+      </div>
+      <div className="mt-10 flex w-full max-w-6xl flex-col items-center gap-4">
+        <div className="w-full max-w-2xl">
+          <h2 className="text-xl font-semibold tracking-tight">Batch Pictures</h2>
+          <p className="mt-1 text-sm text-neutral-400">
+            {frame
+              ? 'Add Pictures to preview each Framed Picture in the Visual Grid.'
+              : 'Upload a Frame first, then add Pictures to fill the Visual Grid.'}
+          </p>
+        </div>
+        <div className="w-full max-w-2xl">
+          <BatchDropzone disabled={batchLoading} onFiles={(files) => void addFiles(files)} />
+        </div>
+        {batchError && (
+          <p role="alert" className="w-full max-w-2xl rounded-xl border border-red-500/40 bg-red-950/60 px-4 py-3 text-sm text-red-200">
+            {batchError}
+          </p>
+        )}
+        <VisualGrid frame={frame} pictures={pictures} loading={batchLoading} onClear={clearBatch} />
       </div>
     </main>
   )
