@@ -135,10 +135,23 @@ async function collectFromEntry(entry: FileSystemEntryLike): Promise<File[]> {
   return []
 }
 
+function relativePathOf(file: File): string {
+  return (file as File & { webkitRelativePath?: string }).webkitRelativePath || ''
+}
+
+function baseNameOf(file: File): string {
+  const relative = relativePathOf(file)
+  if (!relative) return file.name
+  const slash = relative.lastIndexOf('/')
+  return slash >= 0 ? relative.slice(slash + 1) : relative
+}
+
 /**
  * Collect picture files from a drop event, traversing dropped directories
  * (including subdirectories) via `webkitGetAsEntry` with a FileList fallback.
- * Entry results and the FileList are merged so mixed drops lose nothing.
+ * Each traversed entry is a distinct Picture, even when names match, so only
+ * FileList files duplicating a traversed entry (same basename, size, and time)
+ * are skipped. Distinct subdirectory Pictures are never merged.
  */
 export async function collectBatchFiles(dataTransfer: {
   items?: ArrayLike<EntryCapableItem> | DataTransferItemList
@@ -158,13 +171,16 @@ export async function collectBatchFiles(dataTransfer: {
   }
   const fromEntries =
     entries.length > 0 ? (await Promise.all(entries.map(collectFromEntry))).flat() : []
+  const seenObjects = new Set<File>(fromEntries)
+  const entryKeys = new Set(
+    fromEntries.map((file) => `${file.name}-${file.size}-${file.lastModified}`),
+  )
   const fromFiles = dataTransfer.files ? Array.from(dataTransfer.files as ArrayLike<File>) : []
-  const seen = new Set<string>()
-  const merged = [...fromEntries, ...fromFiles].filter((file) => {
-    const key = `${file.name}-${file.size}-${file.lastModified}`
-    if (seen.has(key)) return false
-    seen.add(key)
+  const extra = fromFiles.filter((file) => {
+    if (seenObjects.has(file)) return false
+    if (entryKeys.has(`${baseNameOf(file)}-${file.size}-${file.lastModified}`)) return false
+    seenObjects.add(file)
     return true
   })
-  return filterPictureFiles(merged)
+  return filterPictureFiles([...fromEntries, ...extra])
 }

@@ -75,6 +75,31 @@ describe('collectBatchFiles', () => {
     const result = await collectBatchFiles({ files: [jpg, txt] })
     expect(result).toEqual([jpg])
   })
+
+  it('keeps same-name pictures from different subdirectories', async () => {
+    const first = new File(['x'], 'same.jpg', { type: 'image/jpeg', lastModified: 1000 })
+    const second = new File(['x'], 'same.jpg', { type: 'image/jpeg', lastModified: 1000 })
+    Object.defineProperty(first, 'webkitRelativePath', { value: 'event/a/same.jpg' })
+    Object.defineProperty(second, 'webkitRelativePath', { value: 'event/b/same.jpg' })
+    const result = await collectBatchFiles({ files: [first, second] })
+    expect(result).toEqual([first, second])
+  })
+
+  it('counts a list file duplicating a traversed entry only once', async () => {
+    const fromEntry = new File(['x'], 'dup.jpg', { type: 'image/jpeg', lastModified: 2000 })
+    const fromList = new File(['x'], 'dup.jpg', { type: 'image/jpeg', lastModified: 2000 })
+    Object.defineProperty(fromList, 'webkitRelativePath', { value: 'event/dup.jpg' })
+    const entry = {
+      isFile: true,
+      isDirectory: false,
+      file: (success: (file: File) => void) => success(fromEntry),
+    }
+    const result = await collectBatchFiles({
+      items: [{ webkitGetAsEntry: () => entry }],
+      files: [fromList],
+    })
+    expect(result).toEqual([fromEntry])
+  })
 })
 
 describe('calculateThumbnailSize', () => {

@@ -12,7 +12,8 @@ const ACCEPT =
 /**
  * Drop zone for Batch ingestion: accepts dropped event directories
  * (including subfolders) plus multi-Picture and directory selection.
- * Emits only supported Picture files via `onFiles`.
+ * Forwards chosen files via `onFiles`; the Batch hook keeps supported
+ * Pictures and reports the rest.
  */
 export function BatchDropzone({ disabled, onFiles }: BatchDropzoneProps) {
   const picturesId = useId()
