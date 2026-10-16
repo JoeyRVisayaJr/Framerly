@@ -13,3 +13,5 @@
 - [x] Total picture count and batch status summary display prominently
 
 ## Comments
+
+- 2026-10-17: Implemented and committed as fe07eea (51 tests green, typecheck and build clean). Notes: heic2any loads as a lazy chunk so the main bundle stays lean; multi-image HEICs decode the first image only (v1); full-resolution rendering is left to 06 Batch Export; grid virtualization is future work if large Batches grow heavy. Review findings applied: aperture-box compositing, merged entry+file drops, dropzone forwards all files so unsupported-only drops surface the hook error.
