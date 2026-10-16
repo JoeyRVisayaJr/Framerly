@@ -23,6 +23,11 @@ what each catches, and the Testing Library convention are defined once in
 Testing Decisions in `.scratch/framerly/spec.md`. Follow that section; this
 file does not restate it.
 
+## Review
+
+`CODING_STANDARDS.md` holds the reviewer-enforced rules (judgement calls CI
+cannot check). It is read during code review, not implementation.
+
 ## Workflow
 
 - `npx tsc --noEmit` after each change.
