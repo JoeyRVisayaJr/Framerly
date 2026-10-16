@@ -18,12 +18,10 @@ Match the style in `src/lib/framing.ts`. Unexported helpers are exempt.
 
 ## Tests at seams
 
-- Test behavior through public interfaces, never internals.
-- Headless logic (framing math, aperture detection, storage) gets unit tests
-  against its exported functions.
-- UI gets Testing Library tests asserting user-visible reactions and events,
-  never private component state. Mock only callback seams (`vi.fn()` on props).
-- See Testing Decisions in `.scratch/framerly/spec.md` for the agreed seams.
+Test behavior through public interfaces, never internals. The agreed seams,
+what each catches, and the Testing Library convention are defined once in
+Testing Decisions in `.scratch/framerly/spec.md`. Follow that section; this
+file does not restate it.
 
 ## Workflow
 

@@ -1,6 +1,6 @@
 # 02: Frame Upload and Aperture Detection
 
-**What to build:** The interactive upload area for branded PNG frames. Users can drop or select a PNG frame, the application automatically analyzes the image to detect the transparent aperture cutout, shows an instant preview, and saves the frame in browser storage so it survives page reloads.
+**What to build:** The interactive upload area for branded PNG frames. Users can drop or select a PNG frame, the application automatically analyzes the Frame to detect the transparent Aperture, shows an instant preview, and saves the frame in browser storage so it survives page reloads.
 
 **Blocked by:** 01: Scaffold Project and Core Framing Engine
 
