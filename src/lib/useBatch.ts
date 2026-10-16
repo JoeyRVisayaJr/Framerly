@@ -2,6 +2,8 @@ import { useCallback, useState } from 'react'
 import { filterPictureFiles } from './batchIngest'
 import { decodePictureFile } from './pictureDecode'
 
+import type { FocalPoint } from './subjectDetection'
+
 export type BatchPictureStatus = 'loading' | 'ready' | 'error'
 
 export interface BatchPicture {
@@ -12,6 +14,7 @@ export interface BatchPicture {
   previewUrl: string
   status: BatchPictureStatus
   error?: string
+  focalPoint?: FocalPoint
 }
 
 function makeId(): string {
@@ -69,6 +72,7 @@ export function useBatchIngest() {
                 height: settled.value.height,
                 previewUrl: settled.value.previewUrl,
                 status: 'ready' as const,
+                focalPoint: settled.value.focalPoint,
               }
             }
             return {

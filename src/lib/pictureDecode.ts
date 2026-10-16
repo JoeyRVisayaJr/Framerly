@@ -1,11 +1,13 @@
 import { calculateThumbnailSize, isHeicFile } from './batchIngest'
 import type { Size } from './framing'
+import { detectSubject, type FocalPoint } from './subjectDetection'
 
 export interface DecodedPicture {
   name: string
   width: number
   height: number
   previewUrl: string
+  focalPoint?: FocalPoint
 }
 
 interface BitmapLike {
@@ -18,6 +20,7 @@ export interface PictureDecodeDeps {
   convertHeic?: (file: File) => Promise<Blob>
   loadBitmap?: (blob: Blob) => Promise<BitmapLike>
   renderThumbnail?: (bitmap: BitmapLike, size: Size) => Promise<string>
+  detectSubject?: (source: CanvasImageSource) => Promise<FocalPoint>
 }
 
 /** Convert an Apple HEIC/HEIF file in the browser with no server call. */
@@ -63,20 +66,27 @@ function renderThumbnailDefault(bitmap: BitmapLike, size: Size): Promise<string>
 }
 
 /**
- * Decode one Batch Picture into a lightweight ~800px preview.
+ * Decode one Batch Picture into a lightweight ~800px preview with subject detection.
  * Full-resolution sources are released immediately to avoid OOM.
  */
 export async function decodePictureFile(file: File, deps: PictureDecodeDeps = {}): Promise<DecodedPicture> {
   const convertHeic = deps.convertHeic ?? convertHeicFile
   const loadBitmap = deps.loadBitmap ?? loadBitmapDefault
   const renderThumbnail = deps.renderThumbnail ?? renderThumbnailDefault
+  const detect = deps.detectSubject ?? detectSubject
   try {
     const source: Blob = isHeicFile(file) ? await convertHeic(file) : file
     const bitmap = await loadBitmap(source)
     try {
       const size = calculateThumbnailSize({ width: bitmap.width, height: bitmap.height })
       const previewUrl = await renderThumbnail(bitmap, size)
-      return { name: file.name, width: size.width, height: size.height, previewUrl }
+      let focalPoint: FocalPoint | undefined
+      try {
+        focalPoint = await detect(bitmap as unknown as CanvasImageSource)
+      } catch {
+        // Fall back to default focal point if detector fails
+      }
+      return { name: file.name, width: size.width, height: size.height, previewUrl, focalPoint }
     } finally {
       bitmap.close?.()
     }

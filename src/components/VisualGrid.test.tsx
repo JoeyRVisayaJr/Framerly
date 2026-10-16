@@ -58,4 +58,75 @@ describe('VisualGrid', () => {
     render(<VisualGrid frame={frame} pictures={[]} loading={false} onClear={() => {}} />)
     expect(screen.getByText(/drop a directory above/i)).toBeInTheDocument()
   })
+
+  it('renders the Crop Mode toggle with Crop to Fill selected by default', () => {
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        cropMode="crop-to-fill"
+        onCropModeChange={() => {}}
+        onClear={() => {}}
+      />,
+    )
+    const fillButton = screen.getByRole('radio', { name: /crop to fill/i })
+    const blurredButton = screen.getByRole('radio', { name: /fit with blurred background/i })
+    expect(fillButton).toHaveAttribute('aria-checked', 'true')
+    expect(blurredButton).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('calls onCropModeChange when switching crop mode', () => {
+    const onCropModeChange = vi.fn()
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        cropMode="crop-to-fill"
+        onCropModeChange={onCropModeChange}
+        onClear={() => {}}
+      />,
+    )
+    fireEvent.click(screen.getByRole('radio', { name: /fit with blurred background/i }))
+    expect(onCropModeChange).toHaveBeenCalledWith('fit-blurred')
+  })
+
+  it('applies auto-centering focal point object-position in Crop to Fill mode', () => {
+    const picWithFocal: BatchPicture = {
+      ...pictures[0],
+      focalPoint: { x: 0.25, y: 0.75 },
+    }
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={[picWithFocal]}
+        loading={false}
+        cropMode="crop-to-fill"
+        onClear={() => {}}
+      />,
+    )
+    const img = screen.getByRole('img', { name: /a\.jpg framed/i })
+    expect(img).toHaveClass('object-cover')
+    expect(img.style.objectPosition).toBe('0% 50%')
+  })
+
+  it('renders blurred background and contained foreground in Fit with Blurred Background mode', () => {
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        cropMode="fit-blurred"
+        onClear={() => {}}
+      />,
+    )
+    const apertureBox = screen.getByTestId('aperture-box')
+    const blurredBg = apertureBox.querySelector('img[aria-hidden="true"]')
+    expect(blurredBg).toBeInTheDocument()
+    expect(blurredBg).toHaveClass('blur-md')
+    const fg = screen.getByRole('img', { name: /a\.jpg framed/i })
+    expect(fg).toHaveClass('object-contain')
+  })
 })
+

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   calculateAspectFillPlacement,
+  calculateCoverObjectPosition,
+  calculateFramingPlacement,
   createFramedCanvas,
   renderFramedPicture,
 } from './framing'
@@ -55,6 +57,106 @@ describe('calculateAspectFillPlacement', () => {
     expect(() =>
       calculateAspectFillPlacement({ width: 100, height: 100 }, { width: -5, height: 100 }),
     ).toThrow()
+  })
+
+  it('shifts offset so detected focal point remains centered in the aperture', () => {
+    // Picture 800x400 into Aperture 400x400: scale = 1, drawn 800x400.
+    // Excess is in width: minDx = -400, maxDx = 0.
+    // If focal point is at x = 0.25 (fx = 200), center is at 200 in picture.
+    // Ideal dx to place 200 at aperture center (200): 200 - 200 = 0.
+    const placement = calculateAspectFillPlacement(
+      { width: 800, height: 400 },
+      { width: 400, height: 400 },
+      { x: 0.25, y: 0.5 },
+    )
+    expect(placement.dx).toBe(0)
+    expect(placement.dy).toBe(0)
+  })
+
+  it('clamps auto-centering offset at boundaries so no blank borders appear', () => {
+    // Picture 800x400 into Aperture 400x400: scale = 1, drawn 800x400.
+    // If focal point is extreme right x = 0.95 (fx = 760):
+    // idealDx = 200 - 760 = -560.
+    // Clamped between minDx (-400) and maxDx (0) -> -400.
+    const placement = calculateAspectFillPlacement(
+      { width: 800, height: 400 },
+      { width: 400, height: 400 },
+      { x: 0.95, y: 0.5 },
+    )
+    expect(placement.dx).toBe(-400)
+    expect(placement.dy).toBe(0)
+  })
+})
+
+describe('calculateFramingPlacement', () => {
+  it('calculates Crop to Fill by default', () => {
+    const placement = calculateFramingPlacement(
+      { width: 800, height: 400 },
+      { width: 400, height: 400 },
+      { cropMode: 'crop-to-fill' },
+    )
+    expect(placement.cropMode).toBe('crop-to-fill')
+    expect(placement.drawWidth).toBe(800)
+    expect(placement.drawHeight).toBe(400)
+    expect(placement.dx).toBe(-200)
+    expect(placement.dy).toBe(0)
+  })
+
+  it('calculates Fit with Blurred Background: preserves full picture inside aperture', () => {
+    // Picture 800x400 into Aperture 400x400:
+    // contain scale = min(400/800, 400/400) = 0.5 -> drawn 400x200, dx=0, dy=(400-200)/2 = 100.
+    // background cover scale = max(0.5, 1) = 1 -> drawn 800x400, dx=-200, dy=0.
+    const placement = calculateFramingPlacement(
+      { width: 800, height: 400 },
+      { width: 400, height: 400 },
+      { cropMode: 'fit-blurred' },
+    )
+    expect(placement.cropMode).toBe('fit-blurred')
+    expect(placement.scale).toBe(0.5)
+    expect(placement.drawWidth).toBe(400)
+    expect(placement.drawHeight).toBe(200)
+    expect(placement.dx).toBe(0)
+    expect(placement.dy).toBe(100)
+    expect(placement.background).toEqual({
+      scale: 1,
+      drawWidth: 800,
+      drawHeight: 400,
+      dx: -200,
+      dy: 0,
+    })
+  })
+})
+
+describe('calculateCoverObjectPosition', () => {
+  it('returns 50% 50% for optical center when picture and aperture aspect ratios match', () => {
+    const pos = calculateCoverObjectPosition(
+      { width: 800, height: 600 },
+      { width: 400, height: 300 },
+      { x: 0.5, y: 0.5 },
+    )
+    expect(pos).toEqual({ x: 50, y: 50 })
+  })
+
+  it('calculates horizontal percentage so focal point is centered in aperture', () => {
+    // Picture 800x400 (aspect 2.0), aperture 400x400 (aspect 1.0) -> ratio = 2.0.
+    // Focal point at x = 0.25 -> (0.5 - 0.25*2)/(1-2) * 100 = 0%.
+    const pos = calculateCoverObjectPosition(
+      { width: 800, height: 400 },
+      { width: 400, height: 400 },
+      { x: 0.25, y: 0.5 },
+    )
+    expect(pos).toEqual({ x: 0, y: 50 })
+  })
+
+  it('clamps position percentage between 0 and 100', () => {
+    // Extreme right focal point
+    const pos = calculateCoverObjectPosition(
+      { width: 800, height: 400 },
+      { width: 400, height: 400 },
+      { x: 0.95, y: 0.5 },
+    )
+    expect(pos.x).toBe(100)
+    expect(pos.y).toBe(50)
   })
 })
 
@@ -141,5 +243,49 @@ describe('renderFramedPicture', () => {
         aperture: { x: 350, y: 0, width: 100, height: 100 },
       }),
     ).toThrow()
+  })
+
+  it('renders Crop to Fill with focal point auto-centering shift', () => {
+    const canvas = createFramedCanvas({ width: 400, height: 400 })
+    const ctx = fakeContext()
+    vi.spyOn(canvas, 'getContext').mockReturnValue(ctx)
+
+    const picture = fakeSource(800, 400)
+    const frame = fakeSource(400, 400)
+
+    renderFramedPicture(canvas, {
+      picture,
+      frame,
+      focalPoint: { x: 0.25, y: 0.5 },
+      cropMode: 'crop-to-fill',
+    })
+
+    // Picture drawn at (0, 0) instead of default center-crop (-200, 0)
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(1, picture, 0, 0, 800, 400)
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(2, frame, 0, 0, 400, 400)
+  })
+
+  it('renders Fit with Blurred Background by drawing blurred background then foreground', () => {
+    const canvas = createFramedCanvas({ width: 400, height: 400 })
+    const ctx = fakeContext()
+    vi.spyOn(canvas, 'getContext').mockReturnValue(ctx)
+
+    const picture = fakeSource(800, 400)
+    const frame = fakeSource(400, 400)
+
+    renderFramedPicture(canvas, {
+      picture,
+      frame,
+      cropMode: 'fit-blurred',
+    })
+
+    // Total 3 drawImage calls:
+    // 1: Blurred background cover (overscaled 1.1x to prevent aperture edge fade)
+    // 2: Foreground contain (400x200 at 0, 100)
+    // 3: Frame overlay (400x400 at 0, 0)
+    expect(ctx.drawImage).toHaveBeenCalledTimes(3)
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(1, picture, -240, -20, 880, 440)
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(2, picture, 0, 100, 400, 200)
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(3, frame, 0, 0, 400, 400)
   })
 })

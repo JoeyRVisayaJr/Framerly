@@ -23,6 +23,23 @@ describe('decodePictureFile', () => {
     expect(bitmap.close).toHaveBeenCalled()
   })
 
+  it('runs client-side subject detection to find focal point for auto-centering', async () => {
+    const file = pictureFile('portrait.jpg', 'image/jpeg')
+    const bitmap = { width: 1200, height: 1600, close: vi.fn() }
+    const loadBitmap = vi.fn().mockResolvedValue(bitmap)
+    const renderThumbnail = vi.fn().mockResolvedValue('data:preview-portrait')
+    const detectSubject = vi.fn().mockResolvedValue({ x: 0.4, y: 0.25 })
+
+    const result = await decodePictureFile(file, {
+      loadBitmap,
+      renderThumbnail,
+      detectSubject,
+    })
+
+    expect(detectSubject).toHaveBeenCalledWith(bitmap)
+    expect(result.focalPoint).toEqual({ x: 0.4, y: 0.25 })
+  })
+
   it('converts heic in the browser before decoding, with no server call', async () => {
     const file = pictureFile('b.HEIC', '')
     const converted = new File(['y'], 'b.png', { type: 'image/png' })

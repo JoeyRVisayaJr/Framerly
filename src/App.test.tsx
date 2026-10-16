@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import App from './App'
 import { saveFrame } from './lib/frameStore'
@@ -22,5 +22,17 @@ describe('App scaffold', () => {
     })
     render(<App />)
     expect(screen.getByRole('img', { name: /frame preview/i })).toBeInTheDocument()
+  })
+
+  it('renders Crop Mode toggle and allows toggling to Fit with Blurred Background', async () => {
+    render(<App />)
+    const fillButton = screen.getByRole('radio', { name: /crop to fill/i })
+    const blurredButton = screen.getByRole('radio', { name: /fit with blurred background/i })
+    expect(fillButton).toHaveAttribute('aria-checked', 'true')
+    expect(blurredButton).toHaveAttribute('aria-checked', 'false')
+
+    fireEvent.click(blurredButton)
+    expect(blurredButton).toHaveAttribute('aria-checked', 'true')
+    expect(fillButton).toHaveAttribute('aria-checked', 'false')
   })
 })

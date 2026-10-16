@@ -10,12 +10,14 @@ import {
   saveFrame,
   type StoredFrame,
 } from './lib/frameStore'
+import type { CropMode } from './lib/framing'
 import { useBatchIngest } from './lib/useBatch'
 
 export default function App() {
   const [frame, setFrame] = useState<StoredFrame | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [cropMode, setCropMode] = useState<CropMode>('crop-to-fill')
   const { pictures, loading: batchLoading, error: batchError, addFiles, clearBatch } = useBatchIngest()
 
   useEffect(() => {
@@ -84,7 +86,14 @@ export default function App() {
             {batchError}
           </p>
         )}
-        <VisualGrid frame={frame} pictures={pictures} loading={batchLoading} onClear={clearBatch} />
+        <VisualGrid
+          frame={frame}
+          pictures={pictures}
+          loading={batchLoading}
+          cropMode={cropMode}
+          onCropModeChange={setCropMode}
+          onClear={clearBatch}
+        />
       </div>
     </main>
   )
