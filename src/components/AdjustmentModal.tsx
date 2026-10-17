@@ -26,6 +26,36 @@ export interface AdjustmentModalProps {
 
 const ROTATION_LABELS: Record<number, string> = { 0: '0', 90: '90', 180: '180', 270: '270' }
 
+/** Arrow-key pan step as a fraction of the Aperture. */
+const PAN_KEY_STEP = 0.05
+
+function panFromKeys(event: React.KeyboardEvent, current: { panX: number; panY: number }): {
+  panX: number
+  panY: number
+} | null {
+  const step = PAN_KEY_STEP * (event.shiftKey ? 5 : 1)
+  let panX = current.panX
+  let panY = current.panY
+  switch (event.key) {
+    case 'ArrowLeft':
+      panX -= step
+      break
+    case 'ArrowRight':
+      panX += step
+      break
+    case 'ArrowUp':
+      panY -= step
+      break
+    case 'ArrowDown':
+      panY += step
+      break
+    default:
+      return null
+  }
+  event.preventDefault()
+  return { panX, panY }
+}
+
 /**
  * Adjustment Modal: live interactive pan/zoom/rotate for one Picture.
  * Changes apply immediately with no Save step; Escape, the close button,
@@ -119,6 +149,14 @@ export function AdjustmentModal({
         }
       : { inset: 0 }
 
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const pan = panFromKeys(event, { panX: adjustment.panX, panY: adjustment.panY })
+      if (pan) onAdjust(pan)
+    },
+    [adjustment.panX, adjustment.panY, onAdjust],
+  )
+
   const objectPosition =
     picture.focalPoint && picture.width > 0 && picture.height > 0
       ? (() => {
@@ -167,11 +205,15 @@ export function AdjustmentModal({
 
         <div
           data-testid="adjust-preview"
+          role="application"
+          aria-label={`Pan preview of ${picture.name} with arrow keys`}
+          tabIndex={0}
+          onKeyDown={handleKeyDown}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className="relative mt-3 w-full cursor-grab touch-none overflow-hidden rounded-xl bg-neutral-950 active:cursor-grabbing"
+          className="relative mt-3 w-full cursor-grab touch-none overflow-hidden rounded-xl bg-neutral-950 outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 active:cursor-grabbing"
           style={{ aspectRatio: frame ? `${frame.width} / ${frame.height}` : '3 / 4' }}
         >
           <div data-testid="adjust-aperture" className="absolute overflow-hidden" style={apertureStyle}>
@@ -200,7 +242,6 @@ export function AdjustmentModal({
             <span>Zoom</span>
             <input
               type="range"
-              role="slider"
               aria-label="Zoom"
               min={MIN_ZOOM}
               max={MAX_ZOOM}
@@ -240,7 +281,7 @@ export function AdjustmentModal({
         </div>
 
         <p className="mt-2 text-xs text-neutral-500">
-          Drag the preview to pan. Crop Mode is {cropMode === 'fit-blurred' ? 'Fit with Blurred Background' : 'Crop to Fill'}.
+          Drag the preview to pan, or press the arrow keys after focusing it. Crop Mode is {cropMode === 'fit-blurred' ? 'Fit with Blurred Background' : 'Crop to Fill'}.
         </p>
       </div>
     </div>

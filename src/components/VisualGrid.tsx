@@ -43,6 +43,28 @@ export function VisualGrid({
   onClear,
 }: VisualGridProps) {
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const CROP_MODES: CropMode[] = ['crop-to-fill', 'fit-blurred']
+
+  function handleCropModeKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (
+      event.key !== 'ArrowRight' &&
+      event.key !== 'ArrowDown' &&
+      event.key !== 'ArrowLeft' &&
+      event.key !== 'ArrowUp'
+    ) {
+      return
+    }
+    event.preventDefault()
+    const currentIndex = CROP_MODES.indexOf(cropMode)
+    const forward = event.key === 'ArrowRight' || event.key === 'ArrowDown'
+    const offset = forward ? 1 : CROP_MODES.length - 1
+    const next = CROP_MODES[(currentIndex + offset) % CROP_MODES.length]
+    onCropModeChange?.(next)
+    // Radio convention: the arrow key also moves focus to the newly checked radio.
+    const radios = event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')
+    radios[CROP_MODES.indexOf(next)]?.focus()
+  }
+
   let ready = 0
   let failed = 0
   let pending = 0
@@ -74,12 +96,14 @@ export function VisualGrid({
           <div
             role="radiogroup"
             aria-label="Crop Mode"
+            onKeyDown={handleCropModeKeyDown}
             className="inline-flex rounded-xl border border-neutral-800 bg-neutral-900 p-1"
           >
             <button
               type="button"
               role="radio"
               aria-checked={cropMode === 'crop-to-fill'}
+              tabIndex={cropMode === 'crop-to-fill' ? 0 : -1}
               onClick={() => onCropModeChange?.('crop-to-fill')}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all active:scale-[0.98] ${
                 cropMode === 'crop-to-fill'
@@ -93,6 +117,7 @@ export function VisualGrid({
               type="button"
               role="radio"
               aria-checked={cropMode === 'fit-blurred'}
+              tabIndex={cropMode === 'fit-blurred' ? 0 : -1}
               onClick={() => onCropModeChange?.('fit-blurred')}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all active:scale-[0.98] ${
                 cropMode === 'fit-blurred'

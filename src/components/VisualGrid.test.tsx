@@ -111,6 +111,43 @@ describe('VisualGrid', () => {
     expect(onCropModeChange).toHaveBeenCalledWith('fit-blurred')
   })
 
+  it('moves the roving tabindex onto the checked Crop Mode radio', () => {
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        cropMode="fit-blurred"
+        onCropModeChange={() => {}}
+        onClear={() => {}}
+      />,
+    )
+    expect(screen.getByRole('radio', { name: /fit with blurred background/i })).toHaveAttribute('tabindex', '0')
+    expect(screen.getByRole('radio', { name: /crop to fill/i })).toHaveAttribute('tabindex', '-1')
+  })
+
+  it('switches Crop Mode and moves focus with the arrow keys', () => {
+    const onCropModeChange = vi.fn()
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        cropMode="crop-to-fill"
+        onCropModeChange={onCropModeChange}
+        onClear={() => {}}
+      />,
+    )
+    const group = screen.getByRole('radiogroup', { name: /crop mode/i })
+    fireEvent.keyDown(group, { key: 'ArrowRight' })
+    expect(onCropModeChange).toHaveBeenCalledTimes(1)
+    expect(onCropModeChange).toHaveBeenCalledWith('fit-blurred')
+    // Focus follows the newly checked radio (the state mock keeps the DOM
+    // showing crop-to-fill checked, so Tab wraps there).
+    fireEvent.keyDown(group, { key: 'ArrowLeft' })
+    expect(onCropModeChange).toHaveBeenCalledTimes(2)
+  })
+
   it('applies auto-centering focal point object-position in Crop to Fill mode', () => {
     const picWithFocal: BatchPicture = {
       ...pictures[0],

@@ -130,6 +130,31 @@ describe('AdjustmentModal', () => {
     expect(onAdjust).toHaveBeenCalledWith({ panX: 0.2, panY: 0 })
   })
 
+  it('pans the preview with the arrow keys without touching zoom or rotation', () => {
+    const { onAdjust } = renderModal({ picture: { ...picture, adjustment: { panX: 0.1, panY: 0, zoom: 2, rotation: 0 } } })
+    const preview = screen.getByTestId('adjust-preview')
+    fireEvent.keyDown(preview, { key: 'ArrowRight' })
+    expect(onAdjust).toHaveBeenCalledTimes(1)
+    const call = onAdjust.mock.calls[0][0]
+    expect(call.panX).toBeCloseTo(0.15, 10)
+    expect(call.panY).toBe(0)
+    // Only the pan is patched; zoom and rotation stay untouched.
+    expect(Object.keys(call).sort()).toEqual(['panX', 'panY'])
+  })
+
+  it('pans in larger steps while Shift is held', () => {
+    const { onAdjust } = renderModal()
+    const preview = screen.getByTestId('adjust-preview')
+    fireEvent.keyDown(preview, { key: 'ArrowRight', shiftKey: true })
+    expect(onAdjust).toHaveBeenCalledWith({ panX: 0.25, panY: 0 })
+  })
+
+  it('does not scroll or report other keys from the pan preview', () => {
+    const { onAdjust } = renderModal()
+    fireEvent.keyDown(screen.getByTestId('adjust-preview'), { key: 'Enter' })
+    expect(onAdjust).not.toHaveBeenCalled()
+  })
+
   it('previews inside the Frame aperture matching the auto-centered fit', () => {
     renderModal({ frame, picture: { ...picture, focalPoint: { x: 0.25, y: 0.75 } } })
     // Aperture 840x1260 inside Frame 1080x1920 -> 77.78% x 65.63%, offset 11.11%/10.42%
