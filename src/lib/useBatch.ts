@@ -1,21 +1,14 @@
 import { useCallback, useState } from 'react'
 import { filterPictureFiles } from './batchIngest'
+import {
+  batchReducer,
+  type BatchPicture,
+  type BatchState,
+} from './batchState'
 import { decodePictureFile } from './pictureDecode'
+import { DEFAULT_ADJUSTMENT, type AdjustmentInput } from './framing'
 
-import type { FocalPoint } from './subjectDetection'
-
-export type BatchPictureStatus = 'loading' | 'ready' | 'error'
-
-export interface BatchPicture {
-  id: string
-  name: string
-  width: number
-  height: number
-  previewUrl: string
-  status: BatchPictureStatus
-  error?: string
-  focalPoint?: FocalPoint
-}
+export type { BatchPicture, BatchPictureStatus } from './batchState'
 
 function makeId(): string {
   try {
@@ -29,13 +22,25 @@ const CONCURRENCY = 4
 
 /** Batch state: lightweight ~800px Framed Picture previews, full sources released. */
 export function useBatchIngest() {
-  const [pictures, setPictures] = useState<BatchPicture[]>([])
+  const [state, setState] = useState<BatchState>({ pictures: [] })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const clearBatch = useCallback(() => {
-    setPictures([])
+    setState({ pictures: [] })
     setError(null)
+  }, [])
+
+  const adjustPicture = useCallback((id: string, adjustment: AdjustmentInput) => {
+    setState((prev) => batchReducer(prev, { type: 'adjust', id, adjustment }))
+  }, [])
+
+  const resetPicture = useCallback((id: string) => {
+    setState((prev) => batchReducer(prev, { type: 'reset', id }))
+  }, [])
+
+  const removePicture = useCallback((id: string) => {
+    setState((prev) => batchReducer(prev, { type: 'remove', id }))
   }, [])
 
   const addFiles = useCallback(async (files: File[]) => {
@@ -52,34 +57,39 @@ export function useBatchIngest() {
       height: 0,
       previewUrl: '',
       status: 'loading' as const,
+      file,
+      adjustment: DEFAULT_ADJUSTMENT,
     }))
-    setPictures((prev) => [...prev, ...placeholders])
+    setState((prev) => batchReducer(prev, { type: 'set', pictures: [...prev.pictures, ...placeholders] }))
     setLoading(true)
     try {
       for (let i = 0; i < supported.length; i += CONCURRENCY) {
         const chunk = supported.slice(i, i + CONCURRENCY)
         const chunkIds = placeholders.slice(i, i + CONCURRENCY).map((p) => p.id)
         const results = await Promise.allSettled(chunk.map((file) => decodePictureFile(file)))
-        setPictures((prev) =>
-          prev.map((picture) => {
-            const index = chunkIds.indexOf(picture.id)
-            if (index === -1) return picture
-            const settled = results[index]
-            if (settled.status === 'fulfilled') {
+        setState((prev) =>
+          batchReducer(prev, {
+            type: 'set',
+            pictures: prev.pictures.map((picture) => {
+              const index = chunkIds.indexOf(picture.id)
+              if (index === -1) return picture
+              const settled = results[index]
+              if (settled.status === 'fulfilled') {
+                return {
+                  ...picture,
+                  width: settled.value.width,
+                  height: settled.value.height,
+                  previewUrl: settled.value.previewUrl,
+                  status: 'ready' as const,
+                  focalPoint: settled.value.focalPoint,
+                }
+              }
               return {
                 ...picture,
-                width: settled.value.width,
-                height: settled.value.height,
-                previewUrl: settled.value.previewUrl,
-                status: 'ready' as const,
-                focalPoint: settled.value.focalPoint,
+                status: 'error' as const,
+                error: settled.reason instanceof Error ? settled.reason.message : 'Could not read Picture',
               }
-            }
-            return {
-              ...picture,
-              status: 'error' as const,
-              error: settled.reason instanceof Error ? settled.reason.message : 'Could not read Picture',
-            }
+            }),
           }),
         )
       }
@@ -88,5 +98,14 @@ export function useBatchIngest() {
     }
   }, [])
 
-  return { pictures, loading, error, addFiles, clearBatch }
+  return {
+    pictures: state.pictures,
+    loading,
+    error,
+    addFiles,
+    clearBatch,
+    adjustPicture,
+    resetPicture,
+    removePicture,
+  }
 }

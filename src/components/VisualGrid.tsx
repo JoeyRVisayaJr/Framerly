@@ -1,5 +1,10 @@
 import type { StoredFrame } from '../lib/frameStore'
-import { calculateCoverObjectPosition, type CropMode } from '../lib/framing'
+import { useState } from 'react'
+import {
+  calculatePreviewTransform,
+  calculateCoverObjectPosition,
+  type CropMode,
+} from '../lib/framing'
 import type { BatchPicture } from '../lib/useBatch'
 
 interface VisualGridProps {
@@ -8,6 +13,9 @@ interface VisualGridProps {
   loading: boolean
   cropMode?: CropMode
   onCropModeChange?: (mode: CropMode) => void
+  onOpenAdjustment?: (id: string) => void
+  onRemove?: (id: string) => void
+  onDownload?: (id: string) => void
   onClear: () => void
 }
 
@@ -15,6 +23,7 @@ interface VisualGridProps {
  * Visual Grid: responsive cards showing each Framed Picture preview
  * composited with the active Frame, plus a prominent Batch count summary
  * and a global Crop Mode toggle ("Crop to Fill" vs "Fit with Blurred Background").
+ * Each ready card exposes an Adjustment Modal opener plus Remove and Download actions.
  */
 export function VisualGrid({
   frame,
@@ -22,8 +31,12 @@ export function VisualGrid({
   loading,
   cropMode = 'crop-to-fill',
   onCropModeChange,
+  onOpenAdjustment,
+  onRemove,
+  onDownload,
   onClear,
 }: VisualGridProps) {
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
   let ready = 0
   let failed = 0
   let pending = 0
@@ -123,7 +136,13 @@ export function VisualGrid({
                 key={picture.id}
                 className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900"
               >
-                <div className="relative w-full overflow-hidden bg-neutral-950" style={{ aspectRatio: aspect }}>
+                <button
+                  type="button"
+                  aria-label={`Adjust ${picture.name}`}
+                  onClick={() => onOpenAdjustment?.(picture.id)}
+                  className="relative block w-full cursor-pointer overflow-hidden bg-neutral-950"
+                  style={{ aspectRatio: aspect }}
+                >
                   <div
                     data-testid="aperture-box"
                     className="absolute overflow-hidden"
@@ -142,6 +161,7 @@ export function VisualGrid({
                             src={picture.previewUrl}
                             alt={`${picture.name} framed`}
                             className="relative h-full w-full object-contain"
+                            style={{ transform: calculatePreviewTransform(picture.adjustment) }}
                             loading="lazy"
                           />
                         </>
@@ -160,13 +180,10 @@ export function VisualGrid({
                               src={picture.previewUrl}
                               alt={`${picture.name} framed`}
                               className="h-full w-full object-cover"
-                              style={
-                                pos
-                                  ? {
-                                      objectPosition: `${pos.x}% ${pos.y}%`,
-                                    }
-                                  : undefined
-                              }
+                              style={{
+                                ...(pos ? { objectPosition: `${pos.x}% ${pos.y}%` } : {}),
+                                transform: calculatePreviewTransform(picture.adjustment),
+                              }}
                               loading="lazy"
                             />
                           )
@@ -183,9 +200,44 @@ export function VisualGrid({
                       className="pointer-events-none absolute inset-0 h-full w-full"
                     />
                   )}
-                </div>
-                <figcaption className="truncate px-3 py-2 text-xs text-neutral-300" title={picture.name}>
-                  {picture.name}
+                </button>
+                <figcaption className="flex items-center justify-between gap-2 px-3 py-2">
+                  <span className="truncate text-xs text-neutral-300" title={picture.name}>
+                    {picture.name}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      aria-label={
+                        confirmingId === picture.id
+                          ? `Confirm remove ${picture.name}`
+                          : `Remove picture ${picture.name}`
+                      }
+                      onClick={() => {
+                        if (confirmingId === picture.id) {
+                          onRemove?.(picture.id)
+                          setConfirmingId(null)
+                        } else {
+                          setConfirmingId(picture.id)
+                        }
+                      }}
+                      className={`rounded-lg px-2 py-1 text-xs font-semibold transition-colors ${
+                        confirmingId === picture.id
+                          ? 'bg-red-500/20 text-red-200 hover:bg-red-500/30'
+                          : 'text-neutral-400 hover:text-red-200'
+                      }`}
+                    >
+                      {confirmingId === picture.id ? 'Confirm remove' : 'Remove'}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Download picture ${picture.name}`}
+                      onClick={() => onDownload?.(picture.id)}
+                      className="rounded-lg px-2 py-1 text-xs font-semibold text-neutral-400 hover:text-neutral-100"
+                    >
+                      Download Picture
+                    </button>
+                  </span>
                 </figcaption>
               </figure>
             ),

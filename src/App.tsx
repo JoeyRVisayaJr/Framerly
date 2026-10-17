@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { AdjustmentModal } from './components/AdjustmentModal'
 import { BatchDropzone } from './components/BatchDropzone'
 import { FrameUploader } from './components/FrameUploader'
 import { VisualGrid } from './components/VisualGrid'
@@ -10,7 +11,8 @@ import {
   saveFrame,
   type StoredFrame,
 } from './lib/frameStore'
-import type { CropMode } from './lib/framing'
+import type { AdjustmentInput, CropMode } from './lib/framing'
+import { downloadFramedPicture } from './lib/pictureExport'
 import { useBatchIngest } from './lib/useBatch'
 
 export default function App() {
@@ -18,7 +20,20 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cropMode, setCropMode] = useState<CropMode>('crop-to-fill')
-  const { pictures, loading: batchLoading, error: batchError, addFiles, clearBatch } = useBatchIngest()
+  const [adjustingId, setAdjustingId] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const {
+    pictures,
+    loading: batchLoading,
+    error: batchError,
+    addFiles,
+    clearBatch,
+    adjustPicture,
+    resetPicture,
+    removePicture,
+  } = useBatchIngest()
+
+  const adjustingPicture = pictures.find((picture) => picture.id === adjustingId) ?? null
 
   useEffect(() => {
     setFrame(loadFrame(window.localStorage))
@@ -51,6 +66,56 @@ export default function App() {
     setFrame(null)
     setError(null)
   }, [])
+
+  const handleAdjust = useCallback(
+    (adjustment: AdjustmentInput) => {
+      if (adjustingId) adjustPicture(adjustingId, adjustment)
+    },
+    [adjustingId, adjustPicture],
+  )
+
+  const handleReset = useCallback(() => {
+    if (adjustingId) resetPicture(adjustingId)
+  }, [adjustingId, resetPicture])
+
+  const handleRemove = useCallback(
+    (id: string) => {
+      removePicture(id)
+      setAdjustingId((current) => (current === id ? null : current))
+    },
+    [removePicture],
+  )
+
+  const handleDownload = useCallback(
+    async (id: string) => {
+      const picture = pictures.find((candidate) => candidate.id === id)
+      if (!picture) return
+      if (!frame) {
+        setNotice(`Could not download ${picture.name}: upload a Frame first.`)
+        return
+      }
+      if (!picture.file) {
+        setNotice(`Could not download ${picture.name}: the original file is no longer in memory.`)
+        return
+      }
+      setNotice(null)
+      try {
+        await downloadFramedPicture({
+          file: picture.file,
+          frame,
+          cropMode,
+          focalPoint: picture.focalPoint,
+          adjustment: picture.adjustment,
+        })
+      } catch (e) {
+        // Keep the Adjustment Modal open so no work is lost.
+        setNotice(
+          `Could not download ${picture.name}: ${e instanceof Error ? e.message : 'unknown error'}`,
+        )
+      }
+    },
+    [cropMode, frame, pictures],
+  )
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-neutral-950 px-4 py-10 text-neutral-50">
@@ -86,15 +151,35 @@ export default function App() {
             {batchError}
           </p>
         )}
+        {notice && (
+          <p role="alert" className="w-full max-w-2xl rounded-xl border border-amber-500/40 bg-amber-950/60 px-4 py-3 text-sm text-amber-100">
+            {notice}
+          </p>
+        )}
         <VisualGrid
           frame={frame}
           pictures={pictures}
           loading={batchLoading}
           cropMode={cropMode}
           onCropModeChange={setCropMode}
+          onOpenAdjustment={setAdjustingId}
+          onRemove={handleRemove}
+          onDownload={(id) => void handleDownload(id)}
           onClear={clearBatch}
         />
       </div>
+
+      {adjustingPicture && (
+        <AdjustmentModal
+          picture={adjustingPicture}
+          frame={frame}
+          cropMode={cropMode}
+          onAdjust={handleAdjust}
+          onReset={handleReset}
+          onDownload={() => void handleDownload(adjustingPicture.id)}
+          onClose={() => setAdjustingId(null)}
+        />
+      )}
     </main>
   )
 }

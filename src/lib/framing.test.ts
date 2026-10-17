@@ -1,11 +1,113 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  calculateAdjustedPlacement,
   calculateAspectFillPlacement,
   calculateCoverObjectPosition,
-  calculateFramingPlacement,
+  calculatePreviewTransform,
   createFramedCanvas,
+  normalizeAdjustment,
   renderFramedPicture,
 } from './framing'
+
+describe('normalizeAdjustment', () => {
+  it('returns the default auto-centered adjustment when none is given', () => {
+    expect(normalizeAdjustment()).toEqual({ panX: 0, panY: 0, zoom: 1, rotation: 0 })
+  })
+
+  it('clamps zoom into the 1.0x-3.0x range', () => {
+    expect(normalizeAdjustment({ zoom: 0.5 }).zoom).toBe(1)
+    expect(normalizeAdjustment({ zoom: 9 }).zoom).toBe(3)
+    expect(normalizeAdjustment({ zoom: 1.5 }).zoom).toBe(1.5)
+  })
+
+  it('normalizes rotation to the nearest 90-degree step within 0-270', () => {
+    expect(normalizeAdjustment({ rotation: 80 }).rotation).toBe(90)
+    expect(normalizeAdjustment({ rotation: 400 }).rotation).toBe(0)
+    expect(normalizeAdjustment({ rotation: 450 }).rotation).toBe(90)
+  })
+
+  it('treats non-finite pan and zoom values as the default', () => {
+    expect(normalizeAdjustment({ panX: Number.NaN, panY: Infinity, zoom: Number.NaN })).toEqual({
+      panX: 0,
+      panY: 0,
+      zoom: 1,
+      rotation: 0,
+    })
+  })
+})
+
+describe('calculateAdjustedPlacement', () => {
+  it('scales the auto-centered fit by zoom and keeps the focal point centered', () => {
+    // Picture 800x400 into Aperture 400x400, zoom 1.5:
+    // scale = 1 * 1.5 = 1.5, drawn 1200x600.
+    // Optical-center focal: dx = 200 - 400*0.5*1.5 = -400, dy = 200 - 200*0.5*1.5 = -100.
+    const placement = calculateAdjustedPlacement(
+      { width: 800, height: 400 },
+      { width: 400, height: 400 },
+      { adjustment: { panX: 0, panY: 0, zoom: 1.5, rotation: 0 } },
+    )
+    expect(placement.scale).toBe(1.5)
+    expect(placement.drawWidth).toBe(1200)
+    expect(placement.dx).toBe(-400)
+    expect(placement.dy).toBe(-100)
+  })
+
+  it('clamps pan in Crop to Fill so the picture still covers the aperture', () => {
+    // Pan 1.5 of a 400px aperture = +600px on dx=-400 -> 200, clamped to maxDx 0.
+    const placement = calculateAdjustedPlacement(
+      { width: 800, height: 400 },
+      { width: 400, height: 400 },
+      { adjustment: { panX: 1.5, panY: 0, zoom: 1.5, rotation: 0 } },
+    )
+    expect(placement.dx).toBe(0)
+  })
+
+  it('leaves pan free in Fit with Blurred Background', () => {
+    // Contain scale 0.5 * zoom 1 = 0.5, drawn 400x200, centered dx=0, dy=100.
+    // Pan 0.25 of 400px aperture shifts dx by +100 with no clamp.
+    const placement = calculateAdjustedPlacement(
+      { width: 800, height: 400 },
+      { width: 400, height: 400 },
+      { cropMode: 'fit-blurred', adjustment: { panX: 0.25, panY: 0, zoom: 1, rotation: 0 } },
+    )
+    expect(placement.dx).toBe(100)
+    expect(placement.dy).toBe(100)
+  })
+
+  it('re-clamps pan after a 90-degree rotation swaps the picture dimensions', () => {
+    // Rotated space: picture 400x800 into 400x400 -> scale 1, drawn 400x800, dy=-200.
+    // Pan y = -0.75 of 400px = -300 -> -500, clamped to minDy = 400-800 = -400.
+    const placement = calculateAdjustedPlacement(
+      { width: 800, height: 400 },
+      { width: 400, height: 400 },
+      { adjustment: { panX: 0, panY: -0.75, zoom: 1, rotation: 90 } },
+    )
+    expect(placement.rotation).toBe(90)
+    expect(placement.drawWidth).toBe(400)
+    expect(placement.drawHeight).toBe(800)
+    expect(placement.dy).toBe(-400)
+  })
+
+  it('defaults to the untouched auto-centered fit with no adjustment', () => {
+    const placement = calculateAdjustedPlacement(
+      { width: 800, height: 400 },
+      { width: 400, height: 400 },
+    )
+    expect(placement).toMatchObject({ scale: 1, drawWidth: 800, drawHeight: 400, dx: -200, dy: 0, rotation: 0 })
+  })
+})
+
+describe('calculatePreviewTransform', () => {
+  it('maps a manual adjustment to a CSS transform string', () => {
+    expect(
+      calculatePreviewTransform({ panX: 0.25, panY: -0.1, zoom: 2, rotation: 90 }),
+    ).toBe('translate(25%, -10%) scale(2) rotate(90deg)')
+  })
+
+  it('returns the untouched transform for the auto-centered default', () => {
+    expect(calculatePreviewTransform()).toBe('translate(0%, 0%) scale(1) rotate(0deg)')
+  })
+})
 
 describe('calculateAspectFillPlacement', () => {
   it('covers a square aperture with a landscape picture, centering the excess', () => {
@@ -88,9 +190,9 @@ describe('calculateAspectFillPlacement', () => {
   })
 })
 
-describe('calculateFramingPlacement', () => {
+describe('calculateAdjustedPlacement by Crop Mode', () => {
   it('calculates Crop to Fill by default', () => {
-    const placement = calculateFramingPlacement(
+    const placement = calculateAdjustedPlacement(
       { width: 800, height: 400 },
       { width: 400, height: 400 },
       { cropMode: 'crop-to-fill' },
@@ -106,7 +208,7 @@ describe('calculateFramingPlacement', () => {
     // Picture 800x400 into Aperture 400x400:
     // contain scale = min(400/800, 400/400) = 0.5 -> drawn 400x200, dx=0, dy=(400-200)/2 = 100.
     // background cover scale = max(0.5, 1) = 1 -> drawn 800x400, dx=-200, dy=0.
-    const placement = calculateFramingPlacement(
+    const placement = calculateAdjustedPlacement(
       { width: 800, height: 400 },
       { width: 400, height: 400 },
       { cropMode: 'fit-blurred' },
@@ -182,7 +284,13 @@ describe('renderFramedPicture', () => {
       beginPath: vi.fn(),
       rect: vi.fn(),
       clip: vi.fn(),
-    } as unknown as CanvasRenderingContext2D & { drawImage: ReturnType<typeof vi.fn> }
+      translate: vi.fn(),
+      rotate: vi.fn(),
+    } as unknown as CanvasRenderingContext2D & {
+      drawImage: ReturnType<typeof vi.fn>
+      translate: ReturnType<typeof vi.fn>
+      rotate: ReturnType<typeof vi.fn>
+    }
   }
 
   function fakeSource(width: number, height: number) {
@@ -262,6 +370,47 @@ describe('renderFramedPicture', () => {
 
     // Picture drawn at (0, 0) instead of default center-crop (-200, 0)
     expect(ctx.drawImage).toHaveBeenNthCalledWith(1, picture, 0, 0, 800, 400)
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(2, frame, 0, 0, 400, 400)
+  })
+
+  it('applies an Adjustment when compositing at full resolution', () => {
+    const canvas = createFramedCanvas({ width: 400, height: 400 })
+    const ctx = fakeContext()
+    vi.spyOn(canvas, 'getContext').mockReturnValue(ctx)
+
+    const picture = fakeSource(800, 400)
+    const frame = fakeSource(400, 400)
+
+    renderFramedPicture(canvas, {
+      picture,
+      frame,
+      adjustment: { panX: 1.5, panY: 0, zoom: 1.5, rotation: 0 },
+    })
+
+    // Zoom 1.5 -> scale 1.5, drawn 1200x600 at clamped dx=0, dy=-100
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(1, picture, 0, -100, 1200, 600)
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(2, frame, 0, 0, 400, 400)
+  })
+
+  it('rotates the Picture around the aperture center without double-applying the dimension swap', () => {
+    const canvas = createFramedCanvas({ width: 400, height: 400 })
+    const ctx = fakeContext()
+    vi.spyOn(canvas, 'getContext').mockReturnValue(ctx)
+
+    const picture = fakeSource(800, 400)
+    const frame = fakeSource(400, 400)
+
+    renderFramedPicture(canvas, {
+      picture,
+      frame,
+      adjustment: { panX: 0, panY: 0, zoom: 1, rotation: 90 },
+    })
+
+    // Rotated about the aperture center (200, 200)
+    expect(ctx.rotate).toHaveBeenCalledWith(Math.PI / 2)
+    expect(ctx.translate).toHaveBeenCalledWith(200, 200)
+    // Picture drawn in its OWN frame (800x400) centered, not into a swapped 400x800 box
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(1, picture, -400, -200, 800, 400)
     expect(ctx.drawImage).toHaveBeenNthCalledWith(2, frame, 0, 0, 400, 400)
   })
 

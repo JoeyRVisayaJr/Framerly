@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { VisualGrid } from './VisualGrid'
 import type { StoredFrame } from '../lib/frameStore'
+import type { Adjustment } from '../lib/framing'
 import type { BatchPicture } from '../lib/useBatch'
 
 const frame: StoredFrame = {
@@ -11,10 +12,12 @@ const frame: StoredFrame = {
   aperture: { x: 120, y: 200, width: 840, height: 1260 },
 }
 
+const autoAdjust: Adjustment = { panX: 0, panY: 0, zoom: 1, rotation: 0 }
+
 const pictures: BatchPicture[] = [
-  { id: '1', name: 'a.jpg', width: 800, height: 600, previewUrl: 'data:preview-a', status: 'ready' },
-  { id: '2', name: 'b.heic', width: 600, height: 800, previewUrl: 'data:preview-b', status: 'ready' },
-  { id: '3', name: 'broken.jpg', width: 0, height: 0, previewUrl: '', status: 'error', error: 'Could not read Picture broken.jpg' },
+  { id: '1', name: 'a.jpg', width: 800, height: 600, previewUrl: 'data:preview-a', status: 'ready', adjustment: autoAdjust },
+  { id: '2', name: 'b.heic', width: 600, height: 800, previewUrl: 'data:preview-b', status: 'ready', adjustment: autoAdjust },
+  { id: '3', name: 'broken.jpg', width: 0, height: 0, previewUrl: '', status: 'error', error: 'Could not read Picture broken.jpg', adjustment: autoAdjust },
 ]
 
 describe('VisualGrid', () => {
@@ -127,6 +130,84 @@ describe('VisualGrid', () => {
     expect(blurredBg).toHaveClass('blur-md')
     const fg = screen.getByRole('img', { name: /a\.jpg framed/i })
     expect(fg).toHaveClass('object-contain')
+  })
+
+  it('opens the Adjustment Modal when the preview is clicked', () => {
+    const onOpenAdjustment = vi.fn()
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        onOpenAdjustment={onOpenAdjustment}
+        onClear={() => {}}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /adjust a\.jpg/i }))
+    expect(onOpenAdjustment).toHaveBeenCalledWith('1')
+  })
+
+  it('does not open the Adjustment Modal from the Remove or Download buttons', () => {
+    const onOpenAdjustment = vi.fn()
+    const onDownload = vi.fn()
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        onOpenAdjustment={onOpenAdjustment}
+        onDownload={onDownload}
+        onRemove={() => {}}
+        onClear={() => {}}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /download picture/i }))
+    fireEvent.click(screen.getByRole('button', { name: /remove picture/i }))
+    expect(onOpenAdjustment).not.toHaveBeenCalled()
+  })
+
+  it('removes a Picture only after an inline two-step confirmation', () => {
+    const onRemove = vi.fn()
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        onRemove={onRemove}
+        onClear={() => {}}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /remove picture/i }))
+    expect(onRemove).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: /confirm remove/i }))
+    expect(onRemove).toHaveBeenCalledWith('1')
+  })
+
+  it('downloads one Picture on request', () => {
+    const onDownload = vi.fn()
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        onDownload={onDownload}
+        onClear={() => {}}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /download picture/i }))
+    expect(onDownload).toHaveBeenCalledWith('1')
+  })
+
+  it('reflects a manual adjustment in the card preview', () => {
+    const adjusted: BatchPicture = {
+      ...pictures[0],
+      adjustment: { panX: 0.25, panY: -0.1, zoom: 2, rotation: 90 },
+    }
+    render(<VisualGrid frame={frame} pictures={[adjusted]} loading={false} onClear={() => {}} />)
+    const img = screen.getByRole('img', { name: /a\.jpg framed/i })
+    expect(img.style.transform).toContain('translate(25%, -10%)')
+    expect(img.style.transform).toContain('scale(2)')
+    expect(img.style.transform).toContain('rotate(90deg)')
   })
 })
 

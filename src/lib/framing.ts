@@ -11,6 +11,59 @@ export interface Size {
 
 export type CropMode = 'crop-to-fill' | 'fit-blurred'
 
+/** Minimum zoom for the Adjustment Modal (auto-centered fit from 04). */
+export const MIN_ZOOM = 1
+/** Maximum zoom for the Adjustment Modal. */
+export const MAX_ZOOM = 3
+
+/** Clockwise rotation in degrees, constrained to quarter turns. */
+export type Rotation = 0 | 90 | 180 | 270
+
+/** Manual pan/zoom/rotation state for one Picture within its Aperture. */
+export interface Adjustment {
+  /** Horizontal pan as a fraction of Aperture width (0 = auto-centered). */
+  panX: number
+  /** Vertical pan as a fraction of Aperture height (0 = auto-centered). */
+  panY: number
+  /** Scale multiplier applied on top of the auto-centered fit. */
+  zoom: number
+  /** Clockwise rotation in degrees. */
+  rotation: Rotation
+}
+
+/** The untouched auto-centered state Reset restores. */
+export const DEFAULT_ADJUSTMENT: Adjustment = { panX: 0, panY: 0, zoom: 1, rotation: 0 }
+
+/**
+ * A lenient Adjustment patch: any numeric rotation or out-of-range zoom is
+ * accepted and normalized. Use `Adjustment` for state that must already be valid.
+ */
+export interface AdjustmentInput {
+  panX?: number
+  panY?: number
+  zoom?: number
+  rotation?: number
+}
+
+/**
+ * Clamp an AdjustmentInput into a valid Adjustment:
+ * zoom is clamped to [MIN_ZOOM, MAX_ZOOM], rotation to the nearest
+ * 90-degree step within [0, 360), and non-finite values fall back to defaults.
+ */
+export function normalizeAdjustment(input: AdjustmentInput = {}): Adjustment {
+  const zoom = Number.isFinite(input.zoom)
+    ? Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, input.zoom as number))
+    : DEFAULT_ADJUSTMENT.zoom
+  const rotation = (
+    Number.isFinite(input.rotation)
+      ? ((Math.round((input.rotation as number) / 90) * 90) % 360 + 360) % 360
+      : DEFAULT_ADJUSTMENT.rotation
+  ) as Rotation
+  const panX = Number.isFinite(input.panX) ? (input.panX as number) : DEFAULT_ADJUSTMENT.panX
+  const panY = Number.isFinite(input.panY) ? (input.panY as number) : DEFAULT_ADJUSTMENT.panY
+  return { panX, panY, zoom, rotation }
+}
+
 export interface AspectFillPlacement {
   /** Uniform scale applied to the picture so it fully covers the aperture. */
   scale: number
@@ -46,6 +99,39 @@ function assertPositiveSize(size: Size, label: string): void {
   }
 }
 
+/** Uniform scale that makes a Picture fully cover an Aperture. */
+function coverScale(picture: Size, aperture: Size): number {
+  return Math.max(aperture.width / picture.width, aperture.height / picture.height)
+}
+
+/**
+ * Cover placement at a given scale, auto-centering on the focal point and
+ * clamping the offsets so the Picture keeps covering the Aperture (no blank
+ * borders). `panX`/`panY` shift by a fraction of the Aperture before clamping.
+ */
+function coverPlacement(
+  picture: Size,
+  aperture: Size,
+  focalPoint: FocalPoint,
+  scale: number,
+  panX = 0,
+  panY = 0,
+): AspectFillPlacement {
+  const drawWidth = picture.width * scale
+  const drawHeight = picture.height * scale
+  const focalPixelX = picture.width * focalPoint.x * scale
+  const focalPixelY = picture.height * focalPoint.y * scale
+  const idealDx = aperture.width / 2 - focalPixelX + panX * aperture.width
+  const idealDy = aperture.height / 2 - focalPixelY + panY * aperture.height
+  return {
+    scale,
+    drawWidth,
+    drawHeight,
+    dx: Math.min(0, Math.max(aperture.width - drawWidth, idealDx)),
+    dy: Math.min(0, Math.max(aperture.height - drawHeight, idealDy)),
+  }
+}
+
 /**
  * Calculate `Crop to Fill` placement: scale the picture so it fully covers
  * the aperture, auto-centering on focal point or optical center without blank margins.
@@ -57,28 +143,7 @@ export function calculateAspectFillPlacement(
 ): AspectFillPlacement {
   assertPositiveSize(picture, 'Picture')
   assertPositiveSize(aperture, 'Aperture')
-
-  const scale = Math.max(aperture.width / picture.width, aperture.height / picture.height)
-  const drawWidth = picture.width * scale
-  const drawHeight = picture.height * scale
-
-  // Position focal point at the center of the aperture
-  const focalPixelX = picture.width * focalPoint.x * scale
-  const focalPixelY = picture.height * focalPoint.y * scale
-
-  const idealDx = aperture.width / 2 - focalPixelX
-  const idealDy = aperture.height / 2 - focalPixelY
-
-  // Clamp offsets so the picture completely fills the aperture (no blank borders)
-  const minDx = aperture.width - drawWidth
-  const maxDx = 0
-  const minDy = aperture.height - drawHeight
-  const maxDy = 0
-
-  const dx = Math.min(maxDx, Math.max(minDx, idealDx))
-  const dy = Math.min(maxDy, Math.max(minDy, idealDy))
-
-  return { scale, drawWidth, drawHeight, dx, dy }
+  return coverPlacement(picture, aperture, focalPoint, coverScale(picture, aperture))
 }
 
 export interface CalculateFramingOptions {
@@ -86,29 +151,50 @@ export interface CalculateFramingOptions {
   focalPoint?: FocalPoint
 }
 
+export interface AdjustedFramingOptions extends CalculateFramingOptions {
+  /** Manual pan/zoom/rotation from the Adjustment Modal. Defaults to the auto-centered state. */
+  adjustment?: AdjustmentInput
+}
+
+/** A FramingPlacement that also carries the clockwise rotation. */
+export interface AdjustedPlacement extends FramingPlacement {
+  rotation: Rotation
+}
+
 /**
- * Calculate placement according to the specified Crop Mode:
- * - 'crop-to-fill' (default): covers entire aperture, centered on subject.
- * - 'fit-blurred': preserves the entire picture inside the aperture with a blurred background.
+ * Calculate placement after applying a manual Adjustment on top of the auto-centered fit.
+ * - `zoom` scales the auto-centered fit.
+ * - `panX`/`panY` shift the picture by a fraction of the Aperture size.
+ * - `rotation` rotates the Picture clockwise by 90-degree steps around the Aperture center.
+ * Pan is clamped in 'crop-to-fill' so the picture keeps covering the Aperture, and left
+ * free in 'fit-blurred' where the blurred background already fills any gaps.
  */
-export function calculateFramingPlacement(
+export function calculateAdjustedPlacement(
   picture: Size,
   aperture: Size,
-  options: CalculateFramingOptions = {},
-): FramingPlacement {
+  options: AdjustedFramingOptions = {},
+): AdjustedPlacement {
+  assertPositiveSize(picture, 'Picture')
+  assertPositiveSize(aperture, 'Aperture')
+
+  const adjustment = normalizeAdjustment(options.adjustment)
+  const swap = adjustment.rotation === 90 || adjustment.rotation === 270
+  const rotatedPicture: Size = swap
+    ? { width: picture.height, height: picture.width }
+    : picture
+
   const cropMode = options.cropMode ?? 'crop-to-fill'
   const focalPoint = options.focalPoint ?? OPTICAL_CENTER
 
   if (cropMode === 'fit-blurred') {
-    assertPositiveSize(picture, 'Picture')
-    assertPositiveSize(aperture, 'Aperture')
-
-    const scale = Math.min(aperture.width / picture.width, aperture.height / picture.height)
-    const drawWidth = picture.width * scale
-    const drawHeight = picture.height * scale
-    const dx = (aperture.width - drawWidth) / 2
-    const dy = (aperture.height - drawHeight) / 2
-    const background = calculateAspectFillPlacement(picture, aperture, focalPoint)
+    const fitScale = Math.min(aperture.width / rotatedPicture.width, aperture.height / rotatedPicture.height)
+    const scale = fitScale * adjustment.zoom
+    const drawWidth = rotatedPicture.width * scale
+    const drawHeight = rotatedPicture.height * scale
+    // Start centered, then apply pan freely (no clamp) so the subject can move over the blur.
+    const dx = (aperture.width - drawWidth) / 2 + adjustment.panX * aperture.width
+    const dy = (aperture.height - drawHeight) / 2 + adjustment.panY * aperture.height
+    const background = calculateAspectFillPlacement(rotatedPicture, aperture, focalPoint)
 
     return {
       cropMode,
@@ -118,14 +204,32 @@ export function calculateFramingPlacement(
       dx,
       dy,
       background,
+      rotation: adjustment.rotation,
     }
   }
 
-  const fill = calculateAspectFillPlacement(picture, aperture, focalPoint)
   return {
     cropMode: 'crop-to-fill',
-    ...fill,
+    ...coverPlacement(
+      rotatedPicture,
+      aperture,
+      focalPoint,
+      coverScale(rotatedPicture, aperture) * adjustment.zoom,
+      adjustment.panX,
+      adjustment.panY,
+    ),
+    rotation: adjustment.rotation,
   }
+}
+
+/**
+ * Build the CSS transform string that previews a manual Adjustment in the
+ * Visual Grid and the Adjustment Modal. Pan values are fractions of the
+ * Aperture, so they translate as percentages of the picture's own box.
+ */
+export function calculatePreviewTransform(adjustment?: AdjustmentInput): string {
+  const { panX, panY, zoom, rotation } = normalizeAdjustment(adjustment)
+  return `translate(${panX * 100}%, ${panY * 100}%) scale(${zoom}) rotate(${rotation}deg)`
 }
 
 /**
@@ -184,6 +288,8 @@ export interface RenderFramedPictureInput {
   aperture?: ApertureRect
   cropMode?: CropMode
   focalPoint?: FocalPoint
+  /** Manual pan/zoom/rotation from the Adjustment Modal. Defaults to auto-centered. */
+  adjustment?: AdjustmentInput
 }
 
 function intrinsicSize(source: PictureSource, label: string): Size {
@@ -248,9 +354,10 @@ export function renderFramedPicture(
   assertApertureInsideFrame(aperture, frameSize)
 
   const pictureSize = intrinsicSize(input.picture, 'Picture')
-  const placement = calculateFramingPlacement(pictureSize, aperture, {
+  const placement = calculateAdjustedPlacement(pictureSize, aperture, {
     cropMode: input.cropMode,
     focalPoint: input.focalPoint,
+    adjustment: input.adjustment,
   })
 
   ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -275,14 +382,28 @@ export function renderFramedPicture(
     ctx.restore()
   }
 
-  // Draw foreground picture
-  ctx.drawImage(
-    input.picture,
-    aperture.x + placement.dx,
-    aperture.y + placement.dy,
-    placement.drawWidth,
-    placement.drawHeight,
-  )
+  // Draw the foreground Picture. When rotated, turn the canvas about the
+  // Aperture center and draw the Picture in its own frame so the dimension
+  // swap from the placement math is not applied a second time.
+  if (placement.rotation !== 0) {
+    const centerX = aperture.x + placement.dx + placement.drawWidth / 2
+    const centerY = aperture.y + placement.dy + placement.drawHeight / 2
+    const ownWidth = pictureSize.width * placement.scale
+    const ownHeight = pictureSize.height * placement.scale
+    ctx.save()
+    ctx.translate(centerX, centerY)
+    ctx.rotate((placement.rotation * Math.PI) / 180)
+    ctx.drawImage(input.picture, -ownWidth / 2, -ownHeight / 2, ownWidth, ownHeight)
+    ctx.restore()
+  } else {
+    ctx.drawImage(
+      input.picture,
+      aperture.x + placement.dx,
+      aperture.y + placement.dy,
+      placement.drawWidth,
+      placement.drawHeight,
+    )
+  }
 
   ctx.restore()
 
