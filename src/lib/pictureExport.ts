@@ -36,6 +36,29 @@ export interface RenderedFramedPictureFile {
 /** JPEG quality for single-Picture and Batch exports. */
 export const EXPORT_JPEG_QUALITY = 0.92
 
+/**
+ * Repeated single-Picture downloads of the same HEIC source would pay the
+ * full in-browser conversion again on every click. The conversion promise is
+ * cached per File object until it resolves; a failed conversion is dropped
+ * from the cache so the next attempt can retry.
+ */
+const heicConversionCache = new WeakMap<File, Promise<Blob>>()
+
+function convertHeicCached(file: File, convert: (file: File) => Promise<Blob>): Promise<Blob> {
+  let converted = heicConversionCache.get(file)
+  if (!converted) {
+    converted = convert(file).catch((error) => {
+      heicConversionCache.delete(file)
+      throw error
+    })
+    heicConversionCache.set(file, converted)
+  }
+  return converted
+}
+
+/** Blob URLs must outlive the click task, or Firefox/Safari can cancel the download before it starts. */
+const DOWNLOAD_URL_REVOKE_DELAY_MS = 10_000
+
 function loadBitmapDefault(blob: Blob): Promise<BitmapLike> {
   if (typeof createImageBitmap === 'function') {
     return createImageBitmap(blob) as Promise<BitmapLike>
@@ -99,7 +122,9 @@ export async function renderFramedPictureFile(
     render = renderFramedPicture,
   } = deps
 
-  const source: Blob = isHeicFile(input.file) ? await convertHeic(input.file) : input.file
+  const source: Blob = isHeicFile(input.file)
+    ? await convertHeicCached(input.file, convertHeic)
+    : input.file
   const bitmap = await loadBitmap(source)
   try {
     const frameImage = await loadFrameImage(input.frame.dataUrl)
@@ -128,7 +153,9 @@ export function triggerDownloadDefault(blob: Blob, filename: string): void {
   document.body.appendChild(anchor)
   anchor.click()
   anchor.remove()
-  URL.revokeObjectURL(url)
+  // Revoking in the same task as the click can cancel the download in
+  // Firefox/Safari; give the browser time to start fetching the URL first.
+  setTimeout(() => URL.revokeObjectURL(url), DOWNLOAD_URL_REVOKE_DELAY_MS)
 }
 
 /**

@@ -59,4 +59,40 @@ describe('renderFramedPictureFile', () => {
     toBlob.mockRejectedValue(new Error('encode failed'))
     await expect(renderFramedPictureFile({ file: pictureFile, frame }, injected)).rejects.toThrow()
   })
+
+  it('converts a HEIC Picture once and reuses the conversion for another download', async () => {
+    const { injected } = deps()
+    const convertHeic = vi.fn().mockResolvedValue(new Blob(['jpeg-ish'], { type: 'image/png' }))
+    const heic = new File(['x'], 'IMG_0412.heic', { type: 'image/heic' })
+
+    await renderFramedPictureFile({ file: heic, frame }, { ...injected, convertHeic })
+    await renderFramedPictureFile({ file: heic, frame }, { ...injected, convertHeic })
+
+    expect(convertHeic).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not cache a failed HEIC conversion so the next download can retry', async () => {
+    const { injected } = deps()
+    const convertHeic = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Could not convert Picture IMG_0412.heic'))
+      .mockResolvedValueOnce(new Blob(['jpeg-ish'], { type: 'image/png' }))
+    const heic = new File(['x'], 'IMG_0412.heic', { type: 'image/heic' })
+
+    await expect(
+      renderFramedPictureFile({ file: heic, frame }, { ...injected, convertHeic }),
+    ).rejects.toThrow()
+    await expect(renderFramedPictureFile({ file: heic, frame }, { ...injected, convertHeic })).resolves.toBeTruthy()
+    expect(convertHeic).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not cache conversions across different HEIC files', async () => {
+    const { injected } = deps()
+    const convertHeic = vi.fn().mockResolvedValue(new Blob(['jpeg-ish'], { type: 'image/png' }))
+
+    await renderFramedPictureFile({ file: new File(['x'], 'a.heic', { type: 'image/heic' }), frame }, { ...injected, convertHeic })
+    await renderFramedPictureFile({ file: new File(['x'], 'b.heic', { type: 'image/heic' }), frame }, { ...injected, convertHeic })
+
+    expect(convertHeic).toHaveBeenCalledTimes(2)
+  })
 })
