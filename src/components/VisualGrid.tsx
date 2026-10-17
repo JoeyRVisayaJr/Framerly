@@ -16,6 +16,11 @@ interface VisualGridProps {
   onOpenAdjustment?: (id: string) => void
   onRemove?: (id: string) => void
   onDownload?: (id: string) => void
+  /**
+   * Disables Clear Batch so a destructive click cannot wipe the Batch while
+   * the Adjustment Modal holds unsaved work for one Picture.
+   */
+  clearDisabled?: boolean
   onClear: () => void
 }
 
@@ -34,6 +39,7 @@ export function VisualGrid({
   onOpenAdjustment,
   onRemove,
   onDownload,
+  clearDisabled = false,
   onClear,
 }: VisualGridProps) {
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
@@ -102,7 +108,9 @@ export function VisualGrid({
             <button
               type="button"
               onClick={onClear}
-              className="rounded-xl border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-100 transition-transform active:scale-[0.98]"
+              disabled={clearDisabled}
+              title={clearDisabled ? 'Close the Adjustment Modal first' : undefined}
+              className="rounded-xl border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-100 transition-transform enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
               Clear Batch
             </button>

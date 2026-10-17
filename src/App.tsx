@@ -161,6 +161,7 @@ export default function App() {
           pictures={pictures}
           loading={batchLoading}
           cropMode={cropMode}
+          clearDisabled={adjustingPicture !== null}
           onCropModeChange={setCropMode}
           onOpenAdjustment={setAdjustingId}
           onRemove={handleRemove}

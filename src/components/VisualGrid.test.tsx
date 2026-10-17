@@ -57,6 +57,22 @@ describe('VisualGrid', () => {
     expect(onClear).toHaveBeenCalledTimes(1)
   })
 
+  it('can disable Clear Batch while the Adjustment Modal holds in-progress work', () => {
+    const onClear = vi.fn()
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        clearDisabled
+        onClear={onClear}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /clear batch/i }))
+    expect(onClear).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /clear batch/i })).toBeDisabled()
+  })
+
   it('shows an empty state when the batch has no pictures', () => {
     render(<VisualGrid frame={frame} pictures={[]} loading={false} onClear={() => {}} />)
     expect(screen.getByText(/drop a directory above/i)).toBeInTheDocument()
