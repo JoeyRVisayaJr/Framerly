@@ -71,6 +71,19 @@ describe('App Batch and Adjustment wiring', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
+  it('shows the download error inside the dialog while the modal is open', async () => {
+    saveTestFrame()
+    vi.mocked(downloadFramedPicture).mockRejectedValue(new Error('encode failed'))
+    render(<App />)
+    fireEvent.click(await dropOnePicture())
+
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /download picture/i }))
+
+    await waitFor(() => {
+      expect(within(screen.getByRole('dialog')).getByRole('alert')).toHaveTextContent('encode failed')
+    })
+  })
+
   it('downloads the full-resolution Framed Picture with the current adjustment', async () => {
     saveTestFrame()
     vi.mocked(downloadFramedPicture).mockResolvedValue(undefined)

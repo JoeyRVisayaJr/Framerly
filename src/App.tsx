@@ -151,7 +151,7 @@ export default function App() {
             {batchError}
           </p>
         )}
-        {notice && (
+        {notice && !adjustingPicture && (
           <p role="alert" className="w-full max-w-2xl rounded-xl border border-amber-500/40 bg-amber-950/60 px-4 py-3 text-sm text-amber-100">
             {notice}
           </p>
@@ -174,6 +174,7 @@ export default function App() {
           picture={adjustingPicture}
           frame={frame}
           cropMode={cropMode}
+          notice={notice}
           onAdjust={handleAdjust}
           onReset={handleReset}
           onDownload={() => void handleDownload(adjustingPicture.id)}

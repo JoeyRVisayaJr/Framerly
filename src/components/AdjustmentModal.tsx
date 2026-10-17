@@ -20,6 +20,8 @@ export interface AdjustmentModalProps {
   onReset?: () => void
   onDownload?: () => void
   onClose: () => void
+  /** Latest download error to show inside the modal, where page alerts stay covered by the backdrop. */
+  notice?: string | null
 }
 
 const ROTATION_LABELS: Record<number, string> = { 0: '0', 90: '90', 180: '180', 270: '270' }
@@ -37,6 +39,7 @@ export function AdjustmentModal({
   onReset,
   onDownload,
   onClose,
+  notice,
 }: AdjustmentModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ x: number; y: number } | null>(null)
@@ -155,6 +158,12 @@ export function AdjustmentModal({
             ✕
           </button>
         </div>
+
+        {notice && (
+          <p role="alert" className="mt-3 rounded-xl border border-amber-500/40 bg-amber-950/60 px-3 py-2 text-xs text-amber-100">
+            {notice}
+          </p>
+        )}
 
         <div
           data-testid="adjust-preview"
