@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useBatchIngest } from './useBatch'
+import { useBatchIngest } from './useBatchIngest'
 import { decodePictureFile, type DecodedPicture } from './pictureDecode'
 
 vi.mock('./pictureDecode', () => ({ decodePictureFile: vi.fn() }))

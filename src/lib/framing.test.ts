@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   calculateAdjustedPlacement,
-  calculateAspectFillPlacement,
+  calculateCropToFillPlacement,
   calculateCoverObjectPosition,
   calculatePreviewTransform,
   createFramedCanvas,
@@ -150,12 +150,12 @@ describe('calculatePreviewTransform', () => {
   })
 })
 
-describe('calculateAspectFillPlacement', () => {
+describe('calculateCropToFillPlacement', () => {
   it('covers a square aperture with a landscape picture, centering the excess', () => {
     // Picture 800x400 into aperture 400x400:
     // scale = max(400/800, 400/400) = 1 → drawn 800x400, dx=-200, dy=0
     expect(
-      calculateAspectFillPlacement(
+      calculateCropToFillPlacement(
         { width: 800, height: 400 },
         { width: 400, height: 400 },
       ),
@@ -166,7 +166,7 @@ describe('calculateAspectFillPlacement', () => {
     // Picture 400x800 into aperture 400x400:
     // scale = max(400/400, 400/800) = 1 → drawn 400x800, dx=0, dy=-200
     expect(
-      calculateAspectFillPlacement(
+      calculateCropToFillPlacement(
         { width: 400, height: 800 },
         { width: 400, height: 400 },
       ),
@@ -177,7 +177,7 @@ describe('calculateAspectFillPlacement', () => {
     // Picture 200x100 into aperture 400x400:
     // scale = max(2, 4) = 4 → drawn 800x400, dx=-200, dy=0
     expect(
-      calculateAspectFillPlacement(
+      calculateCropToFillPlacement(
         { width: 200, height: 100 },
         { width: 400, height: 400 },
       ),
@@ -186,7 +186,7 @@ describe('calculateAspectFillPlacement', () => {
 
   it('returns zero offsets when aspect ratios already match', () => {
     expect(
-      calculateAspectFillPlacement(
+      calculateCropToFillPlacement(
         { width: 1600, height: 900 },
         { width: 800, height: 450 },
       ),
@@ -195,10 +195,10 @@ describe('calculateAspectFillPlacement', () => {
 
   it('rejects non-positive dimensions', () => {
     expect(() =>
-      calculateAspectFillPlacement({ width: 0, height: 100 }, { width: 100, height: 100 }),
+      calculateCropToFillPlacement({ width: 0, height: 100 }, { width: 100, height: 100 }),
     ).toThrow()
     expect(() =>
-      calculateAspectFillPlacement({ width: 100, height: 100 }, { width: -5, height: 100 }),
+      calculateCropToFillPlacement({ width: 100, height: 100 }, { width: -5, height: 100 }),
     ).toThrow()
   })
 
@@ -207,7 +207,7 @@ describe('calculateAspectFillPlacement', () => {
     // Excess is in width: minDx = -400, maxDx = 0.
     // If focal point is at x = 0.25 (fx = 200), center is at 200 in picture.
     // Ideal dx to place 200 at aperture center (200): 200 - 200 = 0.
-    const placement = calculateAspectFillPlacement(
+    const placement = calculateCropToFillPlacement(
       { width: 800, height: 400 },
       { width: 400, height: 400 },
       { x: 0.25, y: 0.5 },
@@ -221,7 +221,7 @@ describe('calculateAspectFillPlacement', () => {
     // If focal point is extreme right x = 0.95 (fx = 760):
     // idealDx = 200 - 760 = -560.
     // Clamped between minDx (-400) and maxDx (0) -> -400.
-    const placement = calculateAspectFillPlacement(
+    const placement = calculateCropToFillPlacement(
       { width: 800, height: 400 },
       { width: 400, height: 400 },
       { x: 0.95, y: 0.5 },

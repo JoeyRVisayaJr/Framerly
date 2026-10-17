@@ -64,7 +64,7 @@ export function normalizeAdjustment(input: AdjustmentInput = {}): Adjustment {
   return { panX, panY, zoom, rotation }
 }
 
-export interface AspectFillPlacement {
+export interface CropToFillPlacement {
   /** Uniform scale applied to the picture so it fully covers the aperture. */
   scale: number
   /** Scaled picture width in aperture pixels. */
@@ -85,7 +85,7 @@ export interface FramingPlacement {
   dx: number
   dy: number
   /** Background cover placement used when cropMode is 'fit-blurred' */
-  background?: AspectFillPlacement
+  background?: CropToFillPlacement
 }
 
 function assertPositiveSize(size: Size, label: string): void {
@@ -135,7 +135,7 @@ function coverPlacement(
   scale: number,
   panX = 0,
   panY = 0,
-): AspectFillPlacement {
+): CropToFillPlacement {
   const drawWidth = picture.width * scale
   const drawHeight = picture.height * scale
   const focalPixelX = picture.width * focalPoint.x * scale
@@ -155,11 +155,11 @@ function coverPlacement(
  * Calculate `Crop to Fill` placement: scale the picture so it fully covers
  * the aperture, auto-centering on focal point or optical center without blank margins.
  */
-export function calculateAspectFillPlacement(
+export function calculateCropToFillPlacement(
   picture: Size,
   aperture: Size,
   focalPoint: FocalPoint = OPTICAL_CENTER,
-): AspectFillPlacement {
+): CropToFillPlacement {
   assertPositiveSize(picture, 'Picture')
   assertPositiveSize(aperture, 'Aperture')
   return coverPlacement(picture, aperture, focalPoint, coverScale(picture, aperture))
@@ -215,7 +215,7 @@ export function calculateAdjustedPlacement(
     // Start centered, then apply pan freely (no clamp) so the subject can move over the blur.
     const dx = (aperture.width - drawWidth) / 2 + adjustment.panX * aperture.width
     const dy = (aperture.height - drawHeight) / 2 + adjustment.panY * aperture.height
-    const background = calculateAspectFillPlacement(rotatedPicture, aperture, focalPoint)
+    const background = calculateCropToFillPlacement(rotatedPicture, aperture, focalPoint)
 
     return {
       cropMode,

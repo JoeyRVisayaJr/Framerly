@@ -5,7 +5,7 @@ import {
   calculateCoverObjectPosition,
   type CropMode,
 } from '../lib/framing'
-import type { BatchPicture } from '../lib/useBatch'
+import type { BatchPicture } from '../lib/useBatchIngest'
 
 interface VisualGridProps {
   frame: StoredFrame | null

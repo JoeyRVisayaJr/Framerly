@@ -13,8 +13,14 @@ import {
 } from './lib/frameStore'
 import type { AdjustmentInput, CropMode } from './lib/framing'
 import { downloadFramedPicture } from './lib/pictureExport'
-import { useBatchIngest } from './lib/useBatch'
+import { useBatchIngest } from './lib/useBatchIngest'
 
+/**
+ * App: top-level wiring for the framing workflow — the FrameUploader, the
+ * Batch Dropzone, the Visual Grid with the global Crop Mode toggle, and the
+ * Adjustment Modal for one Picture. Owns Frame persistence and download
+ * error notices.
+ */
 export default function App() {
   const [frame, setFrame] = useState<StoredFrame | null>(null)
   const [loading, setLoading] = useState(false)

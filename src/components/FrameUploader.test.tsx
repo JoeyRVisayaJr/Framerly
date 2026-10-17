@@ -35,7 +35,7 @@ describe('FrameUploader', () => {
     render(<FrameUploader frame={frame} loading={false} error={null} onSelect={() => {}} onClear={() => {}} />)
     expect(screen.getByRole('img', { name: /frame preview/i })).toHaveAttribute('src', frame.dataUrl)
     expect(screen.getByText(/1080.*1920/)).toBeInTheDocument()
-    expect(screen.getByTestId('aperture-overlay')).toBeInTheDocument()
+    expect(screen.getByTestId('aperture-box')).toBeInTheDocument()
   })
 
   it('explains opaque frames without an aperture', () => {

@@ -25,12 +25,13 @@ function FrameFileInput({ id, onFiles, label }: { id: string; onFiles: (files: F
   )
 }
 
-function ApertureOverlay({ frame }: { frame: StoredFrame }) {
+/** Draws the detected Aperture outline on the Frame preview. */
+function ApertureBox({ frame }: { frame: StoredFrame }) {
   if (!frame.aperture) return null
   const { x, y, width, height } = frame.aperture
   return (
     <div
-      data-testid="aperture-overlay"
+      data-testid="aperture-box"
       aria-hidden="true"
       className="pointer-events-none absolute rounded-sm border-2 border-emerald-400"
       style={{
@@ -43,6 +44,11 @@ function ApertureOverlay({ frame }: { frame: StoredFrame }) {
   )
 }
 
+/**
+ * FrameUploader: drop or pick a PNG Frame, preview it with the detected
+ * Aperture, replace it, and clear it. Reports load errors through `error`
+ * and busy state through `loading`.
+ */
 export function FrameUploader({ frame, loading, error, onSelect, onClear }: FrameUploaderProps) {
   const inputId = useId()
   const [dragging, setDragging] = useState(false)
@@ -107,7 +113,7 @@ export function FrameUploader({ frame, loading, error, onSelect, onClear }: Fram
         >
           <div className="relative overflow-hidden rounded-xl bg-neutral-950">
             <img src={frame.dataUrl} alt="Frame preview" className="block max-h-80 w-full object-contain" />
-            <ApertureOverlay frame={frame} />
+            <ApertureBox frame={frame} />
           </div>
           <p className="mt-3 text-sm text-neutral-300">
             Frame {frame.width} x {frame.height}
