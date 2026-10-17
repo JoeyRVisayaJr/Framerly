@@ -99,6 +99,25 @@ function assertPositiveSize(size: Size, label: string): void {
   }
 }
 
+/**
+ * Remap a focal point measured on the unrotated Picture into the Picture's
+ * rotated coordinate space, so the placement math keeps finding the same
+ * subject after a quarter-turn. `focalPoint` stays normalized to 0-1.
+ */
+function rotateFocalPoint(focalPoint: FocalPoint, rotation: Rotation): FocalPoint {
+  switch (rotation) {
+    case 90:
+      // Clockwise quarter-turn: top edge becomes the right edge.
+      return { x: 1 - focalPoint.y, y: focalPoint.x }
+    case 180:
+      return { x: 1 - focalPoint.x, y: 1 - focalPoint.y }
+    case 270:
+      return { x: focalPoint.y, y: 1 - focalPoint.x }
+    default:
+      return focalPoint
+  }
+}
+
 /** Uniform scale that makes a Picture fully cover an Aperture. */
 function coverScale(picture: Size, aperture: Size): number {
   return Math.max(aperture.width / picture.width, aperture.height / picture.height)
@@ -184,7 +203,9 @@ export function calculateAdjustedPlacement(
     : picture
 
   const cropMode = options.cropMode ?? 'crop-to-fill'
-  const focalPoint = options.focalPoint ?? OPTICAL_CENTER
+  // Placement math runs in the rotated Picture's coordinate space, so the
+  // focal point (measured on the unrotated Picture) must be remapped first.
+  const focalPoint = rotateFocalPoint(options.focalPoint ?? OPTICAL_CENTER, adjustment.rotation)
 
   if (cropMode === 'fit-blurred') {
     const fitScale = Math.min(aperture.width / rotatedPicture.width, aperture.height / rotatedPicture.height)
@@ -368,17 +389,31 @@ export function renderFramedPicture(
   ctx.clip()
 
   if (placement.cropMode === 'fit-blurred' && placement.background) {
+    const background = placement.background
     ctx.save()
     if ('filter' in ctx) {
       ctx.filter = 'blur(20px)'
     }
     // Slight overscale (1.1x) prevents blur fade-out at aperture edges
     const overscale = 1.1
-    const bgW = Math.round(placement.background.drawWidth * overscale)
-    const bgH = Math.round(placement.background.drawHeight * overscale)
-    const bgX = Math.round(aperture.x + placement.background.dx - (bgW - placement.background.drawWidth) / 2)
-    const bgY = Math.round(aperture.y + placement.background.dy - (bgH - placement.background.drawHeight) / 2)
-    ctx.drawImage(input.picture, bgX, bgY, bgW, bgH)
+    if (placement.rotation !== 0) {
+      // The background placement is computed in the rotated Picture's space:
+      // turn the canvas about the background box center and draw the unrotated
+      // bitmap in its own aspect, like the foreground below.
+      const bgCenterX = aperture.x + background.dx + background.drawWidth / 2
+      const bgCenterY = aperture.y + background.dy + background.drawHeight / 2
+      ctx.translate(bgCenterX, bgCenterY)
+      ctx.rotate((placement.rotation * Math.PI) / 180)
+      const ownWidth = pictureSize.width * background.scale * overscale
+      const ownHeight = pictureSize.height * background.scale * overscale
+      ctx.drawImage(input.picture, -ownWidth / 2, -ownHeight / 2, ownWidth, ownHeight)
+    } else {
+      const bgW = Math.round(background.drawWidth * overscale)
+      const bgH = Math.round(background.drawHeight * overscale)
+      const bgX = Math.round(aperture.x + background.dx - (bgW - background.drawWidth) / 2)
+      const bgY = Math.round(aperture.y + background.dy - (bgH - background.drawHeight) / 2)
+      ctx.drawImage(input.picture, bgX, bgY, bgW, bgH)
+    }
     ctx.restore()
   }
 

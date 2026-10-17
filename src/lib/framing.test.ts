@@ -88,6 +88,47 @@ describe('calculateAdjustedPlacement', () => {
     expect(placement.dy).toBe(-400)
   })
 
+  it('remaps the focal point into the rotated picture space at 90 degrees', () => {
+    // Unrotated portrait 100x200, focal at the top edge { x: 0.5, y: 0 }.
+    // After a clockwise 90-degree turn the subject sits at the right edge of
+    // the rotated landscape 200x100 space, so cover placement must hug the
+    // drawn width's right boundary: dx = clamp[100-200, 0](-150) = -100.
+    const placement = calculateAdjustedPlacement(
+      { width: 100, height: 200 },
+      { width: 100, height: 100 },
+      { focalPoint: { x: 0.5, y: 0 }, adjustment: { rotation: 90 } },
+    )
+    expect(placement.dx).toBe(-100)
+    expect(placement.dy).toBe(0)
+  })
+
+  it('remaps the focal point into the rotated picture space at 270 degrees', () => {
+    // Same portrait with the focal at the top edge: after a 270-degree turn
+    // the subject sits on the left edge, so the cover placement has no need
+    // to shift: dx clamps to 0 (drawn 200x100 covers the 100px aperture).
+    const placement = calculateAdjustedPlacement(
+      { width: 100, height: 200 },
+      { width: 100, height: 100 },
+      { focalPoint: { x: 0.5, y: 0 }, adjustment: { rotation: 270 } },
+    )
+    expect(placement.dx).toBe(0)
+  })
+
+  it('remaps the focal point at 180 degrees while zoomed', () => {
+    // Picture 800x400 into 400x400 at zoom 2 -> scale 2, drawn 1600x800.
+    // Focal x = 0.25 measures the LEFT in the original picture; after a
+    // 180-degree turn that subject sits at x = 0.75 in rotated space:
+    // idealDx = 200 - 800*0.75*2 = -1000, clamped to [400-1600, 0] = -1000.
+    // Focal y stays centered: dy = 200 - 400*0.5*2 = -200.
+    const placement = calculateAdjustedPlacement(
+      { width: 800, height: 400 },
+      { width: 400, height: 400 },
+      { focalPoint: { x: 0.25, y: 0.5 }, adjustment: { zoom: 2, rotation: 180 } },
+    )
+    expect(placement.dx).toBe(-1000)
+    expect(placement.dy).toBe(-200)
+  })
+
   it('defaults to the untouched auto-centered fit with no adjustment', () => {
     const placement = calculateAdjustedPlacement(
       { width: 800, height: 400 },
@@ -435,6 +476,42 @@ describe('renderFramedPicture', () => {
     expect(ctx.drawImage).toHaveBeenCalledTimes(3)
     expect(ctx.drawImage).toHaveBeenNthCalledWith(1, picture, -240, -20, 880, 440)
     expect(ctx.drawImage).toHaveBeenNthCalledWith(2, picture, 0, 100, 400, 200)
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(3, frame, 0, 0, 400, 400)
+  })
+
+  it('rotates the blurred background with the picture at Fit with Blurred Background', () => {
+    const canvas = createFramedCanvas({ width: 400, height: 400 })
+    const ctx = fakeContext()
+    vi.spyOn(canvas, 'getContext').mockReturnValue(ctx)
+
+    const picture = fakeSource(800, 400)
+    const frame = fakeSource(400, 400)
+
+    renderFramedPicture(canvas, {
+      picture,
+      frame,
+      cropMode: 'fit-blurred',
+      adjustment: { rotation: 90 },
+    })
+
+    // Background cover box in rotated space (400x800) is centered at (200, 200):
+    // the canvas turns about that center and the unrotated 800x400 bitmap is
+    // drawn in its OWN aspect (1.1x overscale -> 880x440), not stretched into
+    // the swapped box. (Float noise tolerated at 5 digits.)
+    expect(ctx.translate).toHaveBeenNthCalledWith(1, 200, 200)
+    expect(ctx.rotate).toHaveBeenNthCalledWith(1, Math.PI / 2)
+    const bgDraw = ctx.drawImage.mock.calls[0]
+    expect(bgDraw[0]).toBe(picture)
+    for (const [actual, expected] of [
+      [bgDraw[1], -440],
+      [bgDraw[2], -220],
+      [bgDraw[3], 880],
+      [bgDraw[4], 440],
+    ] as const) {
+      expect(actual).toBeCloseTo(expected, 5)
+    }
+    // Foreground rotate about its own box center, then the frame on top.
+    expect(ctx.drawImage).toHaveBeenNthCalledWith(2, picture, -200, -100, 400, 200)
     expect(ctx.drawImage).toHaveBeenNthCalledWith(3, frame, 0, 0, 400, 400)
   })
 })
