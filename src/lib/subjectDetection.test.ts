@@ -35,7 +35,7 @@ describe('detectSubject', () => {
     expect(focalPoint.y).toBeCloseTo(0.25, 2)
   })
 
-  it('centers on the collective bounding box of multiple detected faces in group photos', async () => {
+  it('centers on the collective bounding box of multiple detected faces in group Pictures', async () => {
     const canvas = document.createElement('canvas')
     canvas.width = 1000
     canvas.height = 1000

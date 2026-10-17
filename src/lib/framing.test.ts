@@ -472,7 +472,7 @@ describe('renderFramedPicture', () => {
     // Total 3 drawImage calls:
     // 1: Blurred background cover (overscaled 1.1x to prevent aperture edge fade)
     // 2: Foreground contain (400x200 at 0, 100)
-    // 3: Frame overlay (400x400 at 0, 0)
+    // 3: Frame graphic on top (400x400 at 0, 0)
     expect(ctx.drawImage).toHaveBeenCalledTimes(3)
     expect(ctx.drawImage).toHaveBeenNthCalledWith(1, picture, -240, -20, 880, 440)
     expect(ctx.drawImage).toHaveBeenNthCalledWith(2, picture, 0, 100, 400, 200)
