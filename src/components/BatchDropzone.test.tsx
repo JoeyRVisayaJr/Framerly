@@ -1,6 +1,12 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { BatchDropzone } from './BatchDropzone'
+import { collectBatchFiles } from '../lib/batchIngest'
+
+vi.mock('../lib/batchIngest', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/batchIngest')>()),
+  collectBatchFiles: vi.fn(),
+}))
 
 describe('BatchDropzone', () => {
   it('shows the batch dropzone with picture and directory pickers', () => {
@@ -25,5 +31,31 @@ describe('BatchDropzone', () => {
   it('disables input while a batch is loading', () => {
     render(<BatchDropzone disabled onFiles={() => {}} />)
     expect(screen.getByLabelText(/choose pictures/i)).toBeDisabled()
+  })
+
+  it('reports a failed directory traversal instead of failing silently', async () => {
+    vi.mocked(collectBatchFiles).mockRejectedValue(new Error('access denied'))
+    render(<BatchDropzone disabled={false} onFiles={() => {}} />)
+    fireEvent.drop(screen.getByText(/drop event pictures/i).closest('div')!, {
+      dataTransfer: { files: [] },
+    })
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Could not read the dropped directory: access denied'),
+    )
+  })
+
+  it('clears the traversal error on the next drop', async () => {
+    vi.mocked(collectBatchFiles).mockRejectedValue(new Error('access denied'))
+    render(<BatchDropzone disabled={false} onFiles={() => {}} />)
+    fireEvent.drop(screen.getByText(/drop event pictures/i).closest('div')!, {
+      dataTransfer: { files: [] },
+    })
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+
+    vi.mocked(collectBatchFiles).mockResolvedValue([])
+    fireEvent.drop(screen.getByText(/drop event pictures/i).closest('div')!, {
+      dataTransfer: { files: [] },
+    })
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
   })
 })

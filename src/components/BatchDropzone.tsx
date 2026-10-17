@@ -19,6 +19,7 @@ export function BatchDropzone({ disabled, onFiles }: BatchDropzoneProps) {
   const picturesId = useId()
   const directoryId = useId()
   const [dragging, setDragging] = useState(false)
+  const [traverseError, setTraverseError] = useState<string | null>(null)
 
   function forwardFiles(files: File[]) {
     if (files.length > 0) onFiles(files)
@@ -41,12 +42,26 @@ export function BatchDropzone({ disabled, onFiles }: BatchDropzoneProps) {
         if (disabled) return
         e.preventDefault()
         setDragging(false)
-        void collectBatchFiles(e.dataTransfer).then(forwardFiles)
+        setTraverseError(null)
+        void collectBatchFiles(e.dataTransfer)
+          .then(forwardFiles)
+          .catch((error) => {
+            // A failed directory read must not fail silently: report it so the
+            // drop is not mistaken for an unsupported-empty Batch.
+            setTraverseError(
+              `Could not read the dropped directory: ${error instanceof Error ? error.message : 'unknown error'}`,
+            )
+          })
       }}
       className={`rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
         dragging ? 'border-emerald-400 bg-emerald-950/30' : 'border-neutral-700 bg-neutral-900'
       }`}
     >
+      {traverseError && (
+        <p role="alert" className="mb-4 rounded-xl border border-red-500/40 bg-red-950/60 px-4 py-3 text-sm text-red-200">
+          {traverseError}
+        </p>
+      )}
       <p className="text-lg font-semibold text-neutral-100">Drop event Pictures here</p>
       <p className="mt-1 text-sm text-neutral-400">
         Event directories with subdirectories welcome. JPG, PNG, WebP, and Apple HEIC convert in your browser.
