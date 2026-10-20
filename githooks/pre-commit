@@ -1,0 +1,5 @@
+#!/bin/sh
+# Runs the repo guard checks before each commit, so the em/en dash ban and
+# the GLOSSARY avoid-word ban fire locally and not only in CI.
+# Enable once per clone: git config core.hooksPath githooks
+sh scripts/check-guards.sh

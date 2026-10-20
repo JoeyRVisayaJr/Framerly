@@ -28,6 +28,13 @@ file does not restate it.
 `CODING_STANDARDS.md` holds the reviewer-enforced rules (judgement calls CI
 cannot check). It is read during code review, not implementation.
 
+## Local guards
+
+The em/en dash ban and the GLOSSARY avoid-word ban live in
+`scripts/check-guards.sh`. CI runs it, and a pre-commit hook runs it too.
+Enable the hook once per clone: `git config core.hooksPath githooks`. Add new
+guards to the script, not to CI.
+
 ## Workflow
 
 - `npx tsc --noEmit` after each change.

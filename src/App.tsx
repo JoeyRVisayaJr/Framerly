@@ -56,7 +56,7 @@ function describeBatchExportResult(result: BatchExportResult): string {
 }
 
 /**
- * App: top-level wiring for the framing workflow — the FrameUploader, the
+ * App: top-level wiring for the framing workflow: the FrameUploader, the
  * Batch Dropzone, the Visual Grid with the global Crop Mode toggle, and the
  * Adjustment Modal for one Picture. Owns Frame persistence and download
  * error notices.

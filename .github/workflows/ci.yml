@@ -17,17 +17,5 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm test
       - run: npm run build
-      - name: Typography guard (no em/en dashes in src)
-        run: |
-          if grep -rn --include='*.ts' --include='*.tsx' --include='*.css' -e '—' -e '–' src/; then
-            echo 'Found banned em/en dash characters in src/. Use a hyphen (-) instead.'
-            exit 1
-          fi
-      - name: Domain language guard (no glossary avoid-words in src)
-        run: |
-          if grep -rniE --include='*.ts' --include='*.tsx' --include='*.css' \
-              -e 'overlay' -e 'template' -e 'photo' -e 'gallery' -e 'album' \
-              -e 'cutout' -e 'mask' -e 'asset' -e 'snap' src/; then
-            echo 'Found glossary avoid-words in src/. Use the terms in GLOSSARY.md.'
-            exit 1
-          fi
+      - name: Repo guards (typography + domain language)
+        run: sh scripts/check-guards.sh
