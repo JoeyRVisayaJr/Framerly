@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   batchReducer,
+  isReadyPicture,
   type BatchPicture,
   type BatchState,
 } from './batchState'
@@ -88,5 +89,33 @@ describe('batchReducer', () => {
     })
     const removed = batchReducer(adjusted, { type: 'remove', id: 'nope' })
     expect(removed.pictures).toHaveLength(2)
+  })
+})
+
+describe('isReadyPicture', () => {
+  it('is true for a decoded Picture that still holds its original file', () => {
+    const withFile: BatchPicture = {
+      ...ready('a.jpg'),
+      file: new File(['x'], 'a.jpg', { type: 'image/jpeg' }),
+      adjustment: DEFAULT_ADJUSTMENT,
+    }
+    expect(isReadyPicture(withFile)).toBe(true)
+  })
+
+  it('is false while the Picture is still reading or has failed', () => {
+    const loading: BatchPicture = { ...ready('a.jpg'), status: 'loading', adjustment: DEFAULT_ADJUSTMENT }
+    const failed: BatchPicture = {
+      ...ready('b.jpg'),
+      status: 'error',
+      error: 'Could not read Picture b.jpg',
+      adjustment: DEFAULT_ADJUSTMENT,
+    }
+    expect(isReadyPicture(loading)).toBe(false)
+    expect(isReadyPicture(failed)).toBe(false)
+  })
+
+  it('is false when the original file is gone from memory', () => {
+    const noFile: BatchPicture = { ...ready('a.jpg'), adjustment: DEFAULT_ADJUSTMENT }
+    expect(isReadyPicture(noFile)).toBe(false)
   })
 })

@@ -206,6 +206,40 @@ describe('App Batch Export wiring', () => {
     })
   })
 
+  it('counts Pictures that failed at ingest in the progress total and the notice', async () => {
+    vi.mocked(decodePictureFile).mockRejectedValueOnce(new Error('Could not read Picture broken.jpg'))
+    const hooks: { progress?: (processed: number) => void; finish?: () => void } = {}
+    vi.mocked(runBatchExport).mockImplementation(
+      async (_input, deps) =>
+        new Promise<BatchExportResult>((resolve) => {
+          hooks.progress = (processed) =>
+            deps?.onProgress?.({ processed, total: 1, currentName: 'IMG_0412.jpg' })
+          hooks.finish = () => resolve({ ...exportResult, total: 1, processed: 1 })
+        }),
+    )
+    render(<App />)
+    const files = ['broken.jpg', 'IMG_0412.jpg'].map((name) => new File(['x'], name, { type: 'image/jpeg' }))
+    fireEvent.drop(screen.getByText(/drop event pictures here/i).closest('div')!, {
+      dataTransfer: { files },
+    })
+    await screen.findByRole('button', { name: /adjust img_0412/i })
+    await openNamingDialog()
+    submitNamingDialog('event-recap')
+
+    const progressRegion = () => screen.getByRole('region', { name: /batch export progress/i })
+    await waitFor(() => {
+      expect(within(progressRegion()).getByRole('status')).toHaveTextContent('0 of 2 Pictures')
+    })
+    act(() => hooks.progress?.(1))
+    await waitFor(() => {
+      expect(within(progressRegion()).getByRole('status')).toHaveTextContent('1 of 2 Pictures')
+    })
+
+    act(() => hooks.finish?.())
+    const notice = await screen.findByText(/exported 1 of 2 pictures/i)
+    expect(notice).toHaveTextContent('broken.jpg')
+  })
+
   it('disables Batch Export while the Batch is still ingesting', async () => {
     let resolveDecode: (value: Awaited<ReturnType<typeof decodePictureFile>>) => void = () => {}
     vi.mocked(decodePictureFile).mockImplementationOnce(

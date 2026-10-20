@@ -50,6 +50,16 @@ function mapPicture(
 }
 
 /**
+ * True when a Picture finished reading and still holds its original file, so
+ * single-Picture and Batch Export can render it at full resolution.
+ */
+export function isReadyPicture(
+  picture: BatchPicture,
+): picture is BatchPicture & { file: File } {
+  return picture.status === 'ready' && picture.file !== undefined
+}
+
+/**
  * Pure reducer for per-Batch Picture lifecycle: seeding adjustment on ingest,
  * updating one Picture's adjustment, resetting it, and removing it.
  * Unknown ids leave the state unchanged.

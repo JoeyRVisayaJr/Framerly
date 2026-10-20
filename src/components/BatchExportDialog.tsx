@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
 import { defaultArchiveName, sanitizeArchiveName } from '../lib/batchExport'
 import type { PictureExportFormat } from '../lib/exportFormat'
+import { useModalDialog } from './useModalDialog'
 
 export interface BatchExportDialogProps {
   /** Date used for the default archive name. Defaults to today. */
@@ -29,44 +30,13 @@ export function BatchExportDialog({
   const [format, setFormat] = useState<PictureExportFormat>('jpeg')
   const dialogRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const openerRef = useRef<Element | null>(null)
+  const handleDialogKeyDown = useModalDialog({
+    dialogRef,
+    initialFocus: inputRef,
+    returnFocusTo,
+    onClose,
+  })
   const formatGroupId = useId()
-
-  useEffect(() => {
-    openerRef.current = document.activeElement
-    inputRef.current?.focus()
-    inputRef.current?.select()
-    return () => {
-      const opener =
-        returnFocusTo ?? (openerRef.current instanceof HTMLElement ? openerRef.current : null)
-      if (opener?.isConnected) opener.focus()
-    }
-  }, [returnFocusTo])
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  const handleDialogKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Tab') return
-    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-      'button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])',
-    )
-    if (!focusable || focusable.length === 0) return
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault()
-      last.focus()
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault()
-      first.focus()
-    }
-  }, [])
 
   const handleSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {

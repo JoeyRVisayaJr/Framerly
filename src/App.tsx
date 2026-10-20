@@ -22,6 +22,7 @@ import {
   type BatchExportResult,
 } from './lib/batchExport'
 import type { PictureExportFormat } from './lib/exportFormat'
+import { isReadyPicture } from './lib/batchState'
 import { useBatchIngest } from './lib/useBatchIngest'
 
 function pictureCountLabel(count: number): string {
@@ -86,7 +87,7 @@ export default function App() {
   } = useBatchIngest()
 
   const adjustingPicture = pictures.find((picture) => picture.id === adjustingId) ?? null
-  const readyPictures = pictures.filter((picture) => picture.status === 'ready' && picture.file)
+  const readyPictures = pictures.filter(isReadyPicture)
   const batchExportDisabled =
     adjustingPicture !== null || batchLoading || exporting || !frame || readyPictures.length === 0
 
@@ -156,26 +157,22 @@ export default function App() {
   const handleStartExport = useCallback(
     (archiveName: string, format: PictureExportFormat) => {
       if (!frame) return
-      const batchPictures = pictures.flatMap((picture) =>
-        picture.status === 'ready' && picture.file
-          ? [
-              {
-                id: picture.id,
-                name: picture.name,
-                file: picture.file,
-                cropMode,
-                focalPoint: picture.focalPoint,
-                adjustment: picture.adjustment,
-              },
-            ]
-          : [],
-      )
+      const batchPictures = pictures.filter(isReadyPicture).map((picture) => ({
+        id: picture.id,
+        name: picture.name,
+        file: picture.file,
+        cropMode,
+        focalPoint: picture.focalPoint,
+        adjustment: picture.adjustment,
+      }))
       if (batchPictures.length === 0) return
       const ingestFailures: BatchExportFailure[] = pictures.flatMap((picture) =>
         picture.status === 'error'
           ? [{ name: picture.name, message: picture.error ?? 'Could not read Picture' }]
           : [],
       )
+      // The progress bar and the completion notice must show the same total.
+      const exportTotal = batchPictures.length + ingestFailures.length
 
       const controller = new AbortController()
       exportAbortRef.current = controller
@@ -185,7 +182,7 @@ export default function App() {
       setCancelRequested(false)
       setExportProgress({
         processed: 0,
-        total: batchPictures.length,
+        total: exportTotal,
         currentName: batchPictures[0].name,
       })
       setNotice(null)
@@ -201,7 +198,8 @@ export default function App() {
               signal: controller.signal,
             },
             {
-              onProgress: setExportProgress,
+              onProgress: (progress) =>
+                setExportProgress({ ...progress, total: exportTotal }),
               onPackaging: () => setExportPhase('packaging'),
             },
           )

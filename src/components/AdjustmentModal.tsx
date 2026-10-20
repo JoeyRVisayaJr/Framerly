@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import {
   calculateCoverObjectPosition,
   calculatePreviewTransform,
@@ -11,6 +11,7 @@ import {
 } from '../lib/framing'
 import type { BatchPicture } from '../lib/batchState'
 import type { StoredFrame } from '../lib/frameStore'
+import { useModalDialog } from './useModalDialog'
 
 export interface AdjustmentModalProps {
   picture: BatchPicture
@@ -73,44 +74,8 @@ export function AdjustmentModal({
 }: AdjustmentModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ x: number; y: number } | null>(null)
-  const openerRef = useRef<Element | null>(null)
+  const handleDialogKeyDown = useModalDialog({ dialogRef, onClose })
   const adjustment = normalizeAdjustment(picture.adjustment)
-
-  useEffect(() => {
-    openerRef.current = document.activeElement
-    dialogRef.current?.focus()
-    // Restore focus to the card that opened the modal when it unmounts
-    return () => {
-      const opener = openerRef.current
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus()
-    }
-  }, [])
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  const handleDialogKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Tab') return
-    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    )
-    if (!focusable || focusable.length === 0) return
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    const active = document.activeElement
-    if (event.shiftKey && active === first) {
-      event.preventDefault()
-      last.focus()
-    } else if (!event.shiftKey && active === last) {
-      event.preventDefault()
-      first.focus()
-    }
-  }, [])
 
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
