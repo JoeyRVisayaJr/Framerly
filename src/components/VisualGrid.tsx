@@ -16,6 +16,12 @@ interface VisualGridProps {
   onOpenAdjustment?: (id: string) => void
   onRemove?: (id: string) => void
   onDownload?: (id: string) => void
+  /** Opens the Batch Export naming dialog, passing the button that triggered it for focus restoration. */
+  onBatchExport?: (trigger: HTMLButtonElement) => void
+  /** True while the Adjustment Modal is open, Pictures are ingesting, or an export is in flight. */
+  batchExportDisabled?: boolean
+  /** Blocks opening the Adjustment Modal for the duration of a Batch Export run. */
+  adjustDisabled?: boolean
   /**
    * Disables Clear Batch so a destructive click cannot wipe the Batch while
    * the Adjustment Modal holds unsaved work for one Picture.
@@ -39,6 +45,9 @@ export function VisualGrid({
   onOpenAdjustment,
   onRemove,
   onDownload,
+  onBatchExport,
+  batchExportDisabled = false,
+  adjustDisabled = false,
   clearDisabled = false,
   onClear,
 }: VisualGridProps) {
@@ -129,6 +138,18 @@ export function VisualGrid({
             </button>
           </div>
 
+          {pictures.length > 0 && onBatchExport && (
+            <button
+              type="button"
+              onClick={(event) => onBatchExport?.(event.currentTarget)}
+              disabled={batchExportDisabled}
+              title={batchExportDisabled ? 'Batch Export is unavailable right now' : undefined}
+              className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-semibold text-emerald-950 transition-transform enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Export All as ZIP
+            </button>
+          )}
+
           {pictures.length > 0 && (
             <button
               type="button"
@@ -173,7 +194,9 @@ export function VisualGrid({
                   type="button"
                   aria-label={`Adjust ${picture.name}`}
                   onClick={() => onOpenAdjustment?.(picture.id)}
-                  className="relative block w-full cursor-pointer overflow-hidden bg-neutral-950"
+                  disabled={adjustDisabled}
+                  title={adjustDisabled ? 'Adjustments are blocked during Batch Export' : undefined}
+                  className="relative block w-full cursor-pointer overflow-hidden bg-neutral-950 disabled:cursor-not-allowed"
                   style={{ aspectRatio: aspect }}
                 >
                   <div

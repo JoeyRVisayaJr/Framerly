@@ -262,5 +262,56 @@ describe('VisualGrid', () => {
     expect(img.style.transform).toContain('scale(2)')
     expect(img.style.transform).toContain('rotate(90deg)')
   })
+
+  it('opens the Batch Export naming dialog on request', () => {
+    const onBatchExport = vi.fn()
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        onBatchExport={onBatchExport}
+        onClear={() => {}}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /export all as zip/i }))
+    expect(onBatchExport).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables Export All as ZIP while the Adjustment Modal or a run blocks it', () => {
+    const onBatchExport = vi.fn()
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        onBatchExport={onBatchExport}
+        batchExportDisabled
+        onClear={() => {}}
+      />,
+    )
+    const button = screen.getByRole('button', { name: /export all as zip/i })
+    expect(button).toBeDisabled()
+    fireEvent.click(button)
+    expect(onBatchExport).not.toHaveBeenCalled()
+  })
+
+  it('blocks Picture adjustments for the duration of a Batch Export', () => {
+    const onOpenAdjustment = vi.fn()
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        adjustDisabled
+        onOpenAdjustment={onOpenAdjustment}
+        onClear={() => {}}
+      />,
+    )
+    const adjust = screen.getByRole('button', { name: /adjust a\.jpg/i })
+    expect(adjust).toBeDisabled()
+    fireEvent.click(adjust)
+    expect(onOpenAdjustment).not.toHaveBeenCalled()
+  })
 })
 

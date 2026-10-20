@@ -353,12 +353,15 @@ export function createFramedCanvas(frame: Size): HTMLCanvasElement {
  * - In 'fit-blurred', a blurred aspect-fill version is drawn as background (with overscale to prevent border fade),
  *   and the full picture is fitted within the aperture.
  * - The frame graphic is drawn on top at full canvas size.
+ *
+ * Accepts an `HTMLCanvasElement` on the main thread or an `OffscreenCanvas`
+ * inside a Web Worker; both use the same placement and compositing math.
  */
 export function renderFramedPicture(
-  canvas: HTMLCanvasElement,
+  canvas: HTMLCanvasElement | OffscreenCanvas,
   input: RenderFramedPictureInput,
 ): void {
-  const ctx = canvas.getContext('2d')
+  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D | null
   if (!ctx) {
     throw new Error('2D canvas context is not available')
   }

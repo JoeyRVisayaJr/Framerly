@@ -2,7 +2,10 @@ import { renderFramedPicture, type AdjustmentInput, type CropMode, type PictureS
 import type { StoredFrame } from './frameStore'
 import { convertHeicFile } from './pictureDecode'
 import { isHeicFile } from './batchIngest'
+import { exportEncodeOptions, type PictureExportFormat } from './exportFormat'
 import type { FocalPoint } from './subjectDetection'
+
+export { EXPORT_JPEG_QUALITY } from './exportFormat'
 
 interface BitmapLike {
   width: number
@@ -26,15 +29,14 @@ export interface FramedPictureFileInput {
   cropMode?: CropMode
   focalPoint?: FocalPoint
   adjustment?: AdjustmentInput
+  /** Output encoding. Defaults to high-quality JPEG. */
+  format?: PictureExportFormat
 }
 
 export interface RenderedFramedPictureFile {
   blob: Blob
   filename: string
 }
-
-/** JPEG quality for single-Picture and Batch exports. */
-export const EXPORT_JPEG_QUALITY = 0.92
 
 /**
  * Repeated single-Picture downloads of the same HEIC source would pay the
@@ -137,7 +139,8 @@ export async function renderFramedPictureFile(
       focalPoint: input.focalPoint,
       adjustment: input.adjustment,
     })
-    const blob = await toBlob(canvas, 'image/jpeg', EXPORT_JPEG_QUALITY)
+    const encode = exportEncodeOptions(input.format ?? 'jpeg')
+    const blob = await toBlob(canvas, encode.type, encode.quality)
     return { blob, filename: input.file.name }
   } finally {
     bitmap.close?.()
