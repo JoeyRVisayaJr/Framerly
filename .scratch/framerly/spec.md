@@ -63,6 +63,8 @@ Users can inspect all framed pictures at a glance in a responsive Visual Grid, m
   - *Good test criteria*: Verifies that adding files, removing pictures, updating individual adjustment offsets, and resetting to auto-center updates the batch collection accurately and handles invalid/corrupted files gracefully.
 - **Seam 3: Top-Level UI Integration**: React Testing Library / Vitest tests verifying key user flows (uploading frame, dropping folder, opening adjustment modal, triggering export).
   - *Good test criteria*: Tests user-visible reactions and events, avoiding assertions on private component states.
+- **Seam 4: Real Browser (Playwright, `e2e/`)**: Chromium end-to-end checks for the parts jsdom cannot run: real PNG decode, canvas compositing, the Batch Export Web Worker, and the ZIP download. Asserts on rendered pixels and archive entries, not draw commands.
+  - *Good test criteria*: Small smoke suite; sample a few known-capable pixel points instead of comparing screenshots; must prove the Worker path (`page.on('worker')`) because the renderer falls back to the main thread silently. Keep the jsdom seams for logic; do not duplicate Seam 3 flows.
 
 ## Out of Scope
 

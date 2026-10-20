@@ -39,7 +39,10 @@ guards to the script, not to CI.
 
 - `npx tsc --noEmit` after each change.
 - Run the single affected test file during work: `npx vitest run <file>`.
-- Before finishing: full `npm test` plus `npm run build`, both green.
+- Browser seam checks (real canvas, Batch Export Worker, ZIP download) live in
+  `e2e/` under Playwright: run the single file with `npx playwright test <file>`.
+- Before finishing: full `npm test` plus `npm run build`, both green; also
+  `npm run test:e2e` when `e2e/` or `src/` rendering code changed.
 
 ## Issues and specs
 
