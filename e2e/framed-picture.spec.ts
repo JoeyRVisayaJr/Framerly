@@ -6,6 +6,7 @@ import {
   expectSamples,
   FRAME_COLOR,
   makeFramePng,
+  makeOpaqueFramePng,
   makePicturePng,
   type PicturePattern,
 } from './support/pictures'
@@ -166,4 +167,51 @@ test('Batch Export uses the background Worker and keeps Picture names in the ZIP
   expect(entryDecoded.width).toBe(singleDecoded.width)
   expect(entryDecoded.height).toBe(singleDecoded.height)
   expect(entryDecoded.samples).toEqual(singleDecoded.samples)
+})
+
+test('Opaque Frame workflow: upload, calibrate aperture, adjust, and export', async ({ page }) => {
+  await page.goto('/')
+
+  // Upload an opaque Frame without transparent pixels
+  const opaqueBuffer = await makeOpaqueFramePng(page, { width: 600, height: 400 })
+  await page.getByLabel('Choose a PNG Frame').setInputFiles({
+    name: 'opaque-frame.png',
+    mimeType: 'image/png',
+    buffer: opaqueBuffer,
+  })
+
+  await expect(page.getByText('No transparent Aperture found')).toBeVisible()
+  const calibrateButton = page.getByRole('button', { name: 'Calibrate Aperture' })
+  await expect(calibrateButton).toBeVisible()
+  await calibrateButton.click()
+
+  // Calibration boundary box appears
+  await expect(page.getByLabel('Calibrated Aperture boundary')).toBeVisible()
+  await page.getByRole('button', { name: 'Confirm Calibration' }).click()
+
+  await expect(page.getByText(/Calibrated Aperture/)).toBeVisible()
+
+  // Ingest batch pictures
+  await addPictures(page, ['red-and-blue', 'solid-green'])
+
+  // Open Adjustment Modal on first card
+  await page.getByRole('button', { name: 'Adjust event-01.jpg' }).first().click()
+  await expect(page.getByRole('dialog', { name: 'Adjust event-01.jpg' })).toBeVisible()
+  await page.getByRole('button', { name: 'Close' }).click()
+  await expect(page.getByRole('dialog')).not.toBeVisible()
+
+  // Download single Framed Picture
+  const downloadButton = page.getByRole('button', { name: 'Download picture event-01.jpg' }).first()
+  const downloadPromise = page.waitForEvent('download')
+  await downloadButton.click()
+  const download = await downloadPromise
+  const path = await download.path()
+  expect(path).toBeTruthy()
+  if (!path) throw new Error('Playwright did not provide a download path')
+  const bytes = await readFile(path)
+
+  // Verify decoded Framed Picture dimensions match the Frame
+  const decoded = await decodeDownloaded(page, bytes)
+  expect(decoded.width).toBe(600)
+  expect(decoded.height).toBe(400)
 })

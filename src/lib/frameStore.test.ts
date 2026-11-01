@@ -37,11 +37,30 @@ function pngFile(name = 'frame.png', type = 'image/png'): File {
 }
 
 describe('frameStore persistence', () => {
-  it('round-trips a stored frame', () => {
+  it('round-trips a stored frame with calibrated aperture', () => {
     const storage = memoryStorage()
-    expect(loadFrame(storage)).toBeNull()
-    saveFrame(storage, sample)
-    expect(loadFrame(storage)).toEqual(sample)
+    const calibratedSample: StoredFrame = {
+      ...sample,
+      aperture: { x: 100, y: 150, width: 880, height: 1300 },
+      detectedAperture: sample.aperture,
+      calibrated: true,
+    }
+    saveFrame(storage, calibratedSample)
+    expect(loadFrame(storage)).toEqual(calibratedSample)
+  })
+
+  it('round-trips an opaque frame with calibrated aperture', () => {
+    const storage = memoryStorage()
+    const opaqueSample: StoredFrame = {
+      dataUrl: 'data:image/png;base64,AAA',
+      width: 1000,
+      height: 800,
+      aperture: { x: 50, y: 50, width: 900, height: 700 },
+      detectedAperture: null,
+      calibrated: true,
+    }
+    saveFrame(storage, opaqueSample)
+    expect(loadFrame(storage)).toEqual(opaqueSample)
   })
 
   it('clears the stored frame', () => {

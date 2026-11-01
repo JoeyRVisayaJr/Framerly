@@ -13,7 +13,7 @@ import {
   saveFrame,
   type StoredFrame,
 } from './lib/frameStore'
-import type { AdjustmentInput, CropMode } from './lib/framing'
+import type { AdjustmentInput, ApertureRect, CropMode } from './lib/framing'
 import { downloadFramedPicture } from './lib/pictureExport'
 import {
   runBatchExport,
@@ -121,6 +121,23 @@ export default function App() {
     clearFrame(window.localStorage)
     setFrame(null)
     setError(null)
+  }, [])
+
+  const handleCalibrate = useCallback((calibratedAperture: ApertureRect) => {
+    setFrame((current) => {
+      if (!current) return null
+      const updated: StoredFrame = {
+        ...current,
+        aperture: calibratedAperture,
+        calibrated: true,
+      }
+      try {
+        saveFrame(window.localStorage, updated)
+      } catch {
+        setError('Calibrated Aperture saved for this session, but it is too large to persist.')
+      }
+      return updated
+    })
   }, [])
 
   const handleAdjust = useCallback(
@@ -276,6 +293,7 @@ export default function App() {
           error={error}
           onSelect={handleSelect}
           onClear={handleClear}
+          onCalibrate={handleCalibrate}
         />
       </div>
       <div className="mt-10 flex w-full max-w-6xl flex-col items-center gap-4">

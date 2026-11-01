@@ -138,6 +138,7 @@ export async function renderFramedPictureFile(
       cropMode: input.cropMode,
       focalPoint: input.focalPoint,
       adjustment: input.adjustment,
+      frameIsOpaque: input.frame.detectedAperture === null,
     })
     const encode = exportEncodeOptions(input.format ?? 'jpeg')
     const blob = await toBlob(canvas, encode.type, encode.quality)

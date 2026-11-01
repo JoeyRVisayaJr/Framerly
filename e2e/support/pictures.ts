@@ -59,6 +59,43 @@ export async function makeFramePng(
 }
 
 /**
+ * Create a completely opaque Frame PNG with no transparent regions.
+ */
+export async function makeOpaqueFramePng(
+  page: Page,
+  size: { width: number; height: number },
+): Promise<Buffer> {
+  const base64 = await page.evaluate(
+    ({ width, height }) => {
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('2D canvas context is not available')
+      ctx.fillStyle = 'rgb(20, 20, 20)'
+      ctx.fillRect(0, 0, width, height)
+      return new Promise<string>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('Could not encode the Frame PNG'))
+            return
+          }
+          const reader = new FileReader()
+          reader.onload = () => {
+            const dataUrl = String(reader.result)
+            resolve(dataUrl.slice(dataUrl.indexOf(',') + 1))
+          }
+          reader.onerror = () => reject(new Error('Could not read the Frame blob'))
+          reader.readAsDataURL(blob)
+        }, 'image/png')
+      })
+    },
+    size,
+  )
+  return Buffer.from(base64, 'base64')
+}
+
+/**
  * Create a Picture PNG in the page canvas. `red-and-blue` splits the Picture
  * down the middle so a horizontal pan or placement shift moves the colour
  * boundary; `solid-green` is a single flat colour.

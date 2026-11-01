@@ -10,6 +10,10 @@ export interface StoredFrame {
   height: number
   /** Null when the Frame is opaque and needs manual Aperture Calibration. */
   aperture: ApertureRect | null
+  /** The detected Aperture from transparency analysis, or null if opaque. */
+  detectedAperture?: ApertureRect | null
+  /** True when the Aperture has been manually calibrated or adjusted. */
+  calibrated?: boolean
 }
 
 /** Accept PNG Frames by MIME type, falling back to the file extension. */
@@ -28,7 +32,11 @@ function isValidStoredFrame(value: unknown): value is StoredFrame {
     v.width > 0 &&
     typeof v.height === 'number' &&
     v.height > 0 &&
-    (v.aperture === null || isValidAperture(v.aperture))
+    (v.aperture === null || isValidAperture(v.aperture)) &&
+    (v.detectedAperture === undefined ||
+      v.detectedAperture === null ||
+      isValidAperture(v.detectedAperture)) &&
+    (v.calibrated === undefined || typeof v.calibrated === 'boolean')
   )
 }
 
@@ -116,5 +124,12 @@ export async function decodeFrameFile(file: File): Promise<StoredFrame> {
     data: pixels.data,
   })
 
-  return { dataUrl, width, height, aperture }
+  return {
+    dataUrl,
+    width,
+    height,
+    aperture,
+    detectedAperture: aperture,
+    calibrated: false,
+  }
 }

@@ -38,7 +38,8 @@ describe('FrameUploader', () => {
     expect(screen.getByTestId('aperture-box')).toBeInTheDocument()
   })
 
-  it('explains opaque frames without an aperture', () => {
+  it('explains opaque frames without an aperture and offers calibration', () => {
+    const onCalibrate = vi.fn()
     render(
       <FrameUploader
         frame={{ ...frame, aperture: null }}
@@ -46,9 +47,34 @@ describe('FrameUploader', () => {
         error={null}
         onSelect={() => {}}
         onClear={() => {}}
+        onCalibrate={onCalibrate}
       />,
     )
     expect(screen.getByText(/no transparent aperture/i)).toBeInTheDocument()
+    const calibrateBtn = screen.getByRole('button', { name: /calibrate aperture/i })
+    expect(calibrateBtn).toBeInTheDocument()
+
+    fireEvent.click(calibrateBtn)
+    expect(screen.getByText(/Aperture: 864 x 1536/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /confirm calibration/i }))
+    expect(onCalibrate).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers adjust aperture when aperture is detected', () => {
+    render(
+      <FrameUploader
+        frame={frame}
+        loading={false}
+        error={null}
+        onSelect={() => {}}
+        onClear={() => {}}
+      />,
+    )
+    const adjustBtn = screen.getByRole('button', { name: /adjust aperture/i })
+    expect(adjustBtn).toBeInTheDocument()
+
+    fireEvent.click(adjustBtn)
+    expect(screen.getByText(/Aperture: 840 x 1260/)).toBeInTheDocument()
   })
 
   it('replaces the frame via drag and drop onto the preview', () => {

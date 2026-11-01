@@ -92,6 +92,14 @@ export function VisualGrid({
       }
     : undefined
 
+  const isOpaqueFrame = frame?.detectedAperture === null
+  const frameClipStyle =
+    isOpaqueFrame && frame?.aperture
+      ? {
+          clipPath: `polygon(evenodd, 0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${(frame.aperture.x / frame.width) * 100}% ${(frame.aperture.y / frame.height) * 100}%, ${((frame.aperture.x + frame.aperture.width) / frame.width) * 100}% ${(frame.aperture.y / frame.height) * 100}%, ${((frame.aperture.x + frame.aperture.width) / frame.width) * 100}% ${((frame.aperture.y + frame.aperture.height) / frame.height) * 100}%, ${(frame.aperture.x / frame.width) * 100}% ${((frame.aperture.y + frame.aperture.height) / frame.height) * 100}%, ${(frame.aperture.x / frame.width) * 100}% ${(frame.aperture.y / frame.height) * 100}%)`,
+        }
+      : undefined
+
   return (
     <section aria-label="Visual Grid" className="w-full max-w-6xl">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -253,6 +261,7 @@ export function VisualGrid({
                     <img
                       src={frame.dataUrl}
                       alt="Active Frame"
+                      style={frameClipStyle}
                       className="pointer-events-none absolute inset-0 h-full w-full"
                     />
                   )}

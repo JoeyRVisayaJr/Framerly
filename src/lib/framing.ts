@@ -311,6 +311,8 @@ export interface RenderFramedPictureInput {
   focalPoint?: FocalPoint
   /** Manual pan/zoom/rotation from the Adjustment Modal. Defaults to auto-centered. */
   adjustment?: AdjustmentInput
+  /** When true (such as an opaque Frame with calibrated Aperture), punch out the aperture before drawing the Frame. */
+  frameIsOpaque?: boolean
 }
 
 function intrinsicSize(source: PictureSource, label: string): Size {
@@ -445,5 +447,15 @@ export function renderFramedPicture(
 
   ctx.restore()
 
-  ctx.drawImage(input.frame, 0, 0, canvas.width, canvas.height)
+  if (input.frameIsOpaque) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(0, 0, canvas.width, canvas.height)
+    ctx.rect(aperture.x, aperture.y, aperture.width, aperture.height)
+    ctx.clip('evenodd')
+    ctx.drawImage(input.frame, 0, 0, canvas.width, canvas.height)
+    ctx.restore()
+  } else {
+    ctx.drawImage(input.frame, 0, 0, canvas.width, canvas.height)
+  }
 }

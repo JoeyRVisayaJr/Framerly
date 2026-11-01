@@ -514,4 +514,26 @@ describe('renderFramedPicture', () => {
     expect(ctx.drawImage).toHaveBeenNthCalledWith(2, picture, -200, -100, 400, 200)
     expect(ctx.drawImage).toHaveBeenNthCalledWith(3, frame, 0, 0, 400, 400)
   })
+
+  it('clips the aperture with evenodd rule when frame is opaque', () => {
+    const canvas = createFramedCanvas({ width: 600, height: 400 })
+    const ctx = fakeContext()
+    vi.spyOn(canvas, 'getContext').mockReturnValue(ctx)
+
+    const picture = fakeSource(300, 200)
+    const frame = fakeSource(600, 400)
+    const aperture = { x: 100, y: 50, width: 400, height: 300 }
+
+    renderFramedPicture(canvas, {
+      picture,
+      frame,
+      aperture,
+      frameIsOpaque: true,
+    })
+
+    // The second clip call uses evenodd to punch out the aperture
+    expect(ctx.clip).toHaveBeenCalledWith('evenodd')
+    expect(ctx.rect).toHaveBeenCalledWith(0, 0, 600, 400)
+    expect(ctx.rect).toHaveBeenCalledWith(100, 50, 400, 300)
+  })
 })

@@ -42,6 +42,7 @@ async function handleRequest(request: WorkerRenderRequest): Promise<void> {
         cropMode: request.cropMode,
         focalPoint: request.focalPoint,
         adjustment: request.adjustment,
+        frameIsOpaque: request.frame.detectedAperture === null,
       })
       const blob = await canvas.convertToBlob(exportEncodeOptions(request.format))
       scope.postMessage({ id: request.id, blob })
