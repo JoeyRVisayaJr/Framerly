@@ -74,7 +74,8 @@ describe('useBatchIngest', () => {
     })
     expect(result.current.pictures).toEqual([])
     expect(result.current.loading).toBe(false)
-    expect(result.current.error).toBe('No supported Pictures found. Use JPG, PNG, WebP, or HEIC.')
+    expect(result.current.error).toContain('No supported Pictures found. Use JPG, PNG, WebP, or HEIC.')
+    expect(result.current.error).toContain('notes.txt')
   })
 
   it('stops decoding and drops loading when the Batch is cleared mid-run', async () => {
@@ -127,5 +128,29 @@ describe('useBatchIngest', () => {
     })
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.pictures.every((picture) => picture.status === 'ready')).toBe(true)
+  })
+
+  it('names each unsupported file when no supported Pictures arrive', async () => {
+    const { result } = renderHook(() => useBatchIngest())
+    await act(async () => {
+      await result.current.addFiles([
+        new File(['x'], 'notes.txt', { type: 'text/plain' }),
+        new File(['x'], 'clip.mp4', { type: 'video/mp4' }),
+      ])
+    })
+    expect(result.current.error).toContain('notes.txt')
+    expect(result.current.error).toContain('clip.mp4')
+  })
+
+  it('names the Picture and keeps the Batch error null when one decode fails', async () => {
+    vi.mocked(decodePictureFile).mockRejectedValue(new Error('Could not decode Picture broken.jpg'))
+    const { result } = renderHook(() => useBatchIngest())
+    await act(async () => {
+      await result.current.addFiles([jpgFile('broken.jpg')])
+    })
+    const broken = result.current.pictures[0]
+    expect(broken.status).toBe('error')
+    expect(broken.error).toContain('broken.jpg')
+    expect(result.current.error).toBeNull()
   })
 })

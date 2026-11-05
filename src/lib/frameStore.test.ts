@@ -94,3 +94,17 @@ describe('isPngFile', () => {
     expect(isPngFile(new File(['x'], 'notes.txt', { type: 'text/plain' }))).toBe(false)
   })
 })
+
+describe('decodeFrameFile error names', () => {
+  it('names the Frame file when PNG decoding fails', async () => {
+    const { decodeFrameFile } = await import('./frameStore')
+    const file = new File(['not a png'], 'broken-frame.png', { type: 'image/png' })
+    await expect(decodeFrameFile(file)).rejects.toThrow('broken-frame.png')
+  })
+
+  it('names the Frame file when the file type is unsupported', async () => {
+    const { decodeFrameFile } = await import('./frameStore')
+    const file = new File(['x'], 'pic.jpg', { type: 'image/jpeg' })
+    await expect(decodeFrameFile(file)).rejects.toThrow('pic.jpg')
+  })
+})

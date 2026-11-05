@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import type { StoredFrame } from '../lib/frameStore'
 import type { ApertureRect } from '../lib/framing'
 import { ApertureCalibrator } from './ApertureCalibrator'
+import { Tooltip } from './Tooltip'
 
 interface FrameUploaderProps {
   frame: StoredFrame | null
@@ -99,12 +100,18 @@ export function FrameUploader({
       {!loading && !frame && (
         <div
           {...dropHandlers}
+          data-drop-state={dragging ? 'accepted' : undefined}
           className={`rounded-xl border-2 border-dashed p-10 text-center transition-colors ${
             dragging ? 'border-emerald-400 bg-emerald-950/30' : 'border-neutral-700 bg-neutral-900'
           }`}
         >
-          <p className="text-lg font-semibold text-neutral-100">Drop a PNG Frame here</p>
+          <p className="text-lg font-semibold text-neutral-100">
+            {dragging ? 'Release to replace' : 'Drop a PNG Frame here'}
+          </p>
           <p className="mt-1 text-sm text-neutral-400">Transparent area becomes the Aperture</p>
+          <div data-testid="frame-empty-state" className="mt-2 text-xs text-neutral-400">
+            No Frame yet. Upload a PNG Frame to begin framing event Pictures.
+          </div>
           <label
             htmlFor={inputId}
             className="mt-4 inline-block cursor-pointer rounded-xl bg-emerald-500 px-5 py-2 text-sm font-semibold text-neutral-950 transition-transform active:scale-[0.98]"
@@ -118,6 +125,7 @@ export function FrameUploader({
       {!loading && frame && (
         <div
           {...(!calibrating ? dropHandlers : {})}
+          data-drop-state={dragging ? 'accepted' : undefined}
           className={`rounded-xl border bg-neutral-900 p-6 ${
             dragging ? 'border-dashed border-emerald-400' : 'border-neutral-800'
           }`}
@@ -137,12 +145,18 @@ export function FrameUploader({
                 <img src={frame.dataUrl} alt="Frame preview" className="block max-h-80 w-full object-contain" />
                 <ApertureBox frame={frame} />
               </div>
-              <p className="mt-3 text-sm text-neutral-300">
-                Frame {frame.width} x {frame.height}
-                {frame.aperture
-                  ? `, ${frame.calibrated ? 'Calibrated Aperture' : 'Aperture'} ${frame.aperture.width} x ${frame.aperture.height} at ${frame.aperture.x}, ${frame.aperture.y}`
-                  : '. No transparent Aperture found. Calibrate one manually to frame pictures.'}
-              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <p className="text-sm text-neutral-300">
+                  Frame {frame.width} x {frame.height}
+                  {frame.aperture
+                    ? `, ${frame.calibrated ? 'Calibrated Aperture' : 'Aperture'} ${frame.aperture.width} x ${frame.aperture.height} at ${frame.aperture.x}, ${frame.aperture.y}`
+                    : '. No transparent Aperture found. Calibrate one manually to frame pictures.'}
+                </p>
+                <Tooltip
+                  label="About the Aperture"
+                  content="The Aperture is the transparent region within a Frame where the Picture is positioned and visible."
+                />
+              </div>
               <div className="mt-4 flex flex-wrap gap-3">
                 {frame.aperture ? (
                   <button

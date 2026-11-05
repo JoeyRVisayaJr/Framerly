@@ -79,17 +79,40 @@ function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('Could not read the Frame file'))
+    reader.onerror = () => reject(new Error(`Could not read Frame file ${file.name}`))
     reader.readAsDataURL(file)
   })
 }
 
-function loadFrameImage(dataUrl: string): Promise<HTMLImageElement> {
+function loadFrameImage(dataUrl: string, name: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('Could not decode the Frame file as PNG'))
+    img.onerror = () => reject(new Error(`Could not decode Frame file ${name} as PNG`))
     img.src = dataUrl
+  })
+}
+
+async function readHeaderBytes(file: File, length = 8): Promise<Uint8Array> {
+  if (typeof file.arrayBuffer === 'function') {
+    try {
+      const buf = await file.arrayBuffer()
+      return new Uint8Array(buf.slice(0, length))
+    } catch {
+      // Fall through to FileReader
+    }
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (reader.result instanceof ArrayBuffer) {
+        resolve(new Uint8Array(reader.result).slice(0, length))
+      } else {
+        resolve(new Uint8Array(0))
+      }
+    }
+    reader.onerror = () => reject(new Error(`Could not decode Frame file ${file.name} as PNG`))
+    reader.readAsArrayBuffer(file)
   })
 }
 
@@ -99,37 +122,58 @@ function loadFrameImage(dataUrl: string): Promise<HTMLImageElement> {
  */
 export async function decodeFrameFile(file: File): Promise<StoredFrame> {
   if (!isPngFile(file)) {
-    throw new Error('Frame must be a PNG file')
+    throw new Error(`Frame file ${file.name} must be a PNG file`)
   }
-  const dataUrl = await readAsDataUrl(file)
-  const img = await loadFrameImage(dataUrl)
-  const width = img.naturalWidth
-  const height = img.naturalHeight
-  if (!width || !height) {
-    throw new Error('Could not decode the Frame file as PNG')
-  }
+  try {
+    const header = await readHeaderBytes(file, 8)
+    const isPngHeader =
+      header.length >= 8 &&
+      header[0] === 0x89 &&
+      header[1] === 0x50 &&
+      header[2] === 0x4e &&
+      header[3] === 0x47 &&
+      header[4] === 0x0d &&
+      header[5] === 0x0a &&
+      header[6] === 0x1a &&
+      header[7] === 0x0a
+    if (!isPngHeader) {
+      throw new Error(`Could not decode Frame file ${file.name} as PNG`)
+    }
+    const dataUrl = await readAsDataUrl(file)
+    const img = await loadFrameImage(dataUrl, file.name)
+    const width = img.naturalWidth
+    const height = img.naturalHeight
+    if (!width || !height) {
+      throw new Error(`Could not decode Frame file ${file.name} as PNG`)
+    }
 
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) {
-    throw new Error('2D canvas context is not available')
-  }
-  ctx.drawImage(img, 0, 0)
-  const pixels = ctx.getImageData(0, 0, width, height)
-  const aperture = detectAperture({
-    width: pixels.width,
-    height: pixels.height,
-    data: pixels.data,
-  })
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) {
+      throw new Error('2D canvas context is not available')
+    }
+    ctx.drawImage(img, 0, 0)
+    const pixels = ctx.getImageData(0, 0, width, height)
+    const aperture = detectAperture({
+      width: pixels.width,
+      height: pixels.height,
+      data: pixels.data,
+    })
 
-  return {
-    dataUrl,
-    width,
-    height,
-    aperture,
-    detectedAperture: aperture,
-    calibrated: false,
+    return {
+      dataUrl,
+      width,
+      height,
+      aperture,
+      detectedAperture: aperture,
+      calibrated: false,
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes(file.name)) {
+      throw err
+    }
+    throw new Error(`Could not decode Frame file ${file.name} as PNG`)
   }
 }

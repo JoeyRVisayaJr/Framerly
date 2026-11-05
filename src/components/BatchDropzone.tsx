@@ -33,15 +33,14 @@ export function BatchDropzone({ disabled, onFiles }: BatchDropzoneProps) {
   return (
     <div
       onDragOver={(e) => {
-        if (disabled) return
         e.preventDefault()
         setDragging(true)
       }}
       onDragLeave={() => setDragging(false)}
       onDrop={(e) => {
-        if (disabled) return
         e.preventDefault()
         setDragging(false)
+        if (disabled) return
         setTraverseError(null)
         void collectBatchFiles(e.dataTransfer)
           .then(forwardFiles)
@@ -53,8 +52,13 @@ export function BatchDropzone({ disabled, onFiles }: BatchDropzoneProps) {
             )
           })
       }}
+      data-drop-state={dragging ? (disabled ? 'rejected' : 'accepted') : undefined}
       className={`rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
-        dragging ? 'border-emerald-400 bg-emerald-950/30' : 'border-neutral-700 bg-neutral-900'
+        dragging
+          ? disabled
+            ? 'border-red-500 bg-red-950/30'
+            : 'border-emerald-400 bg-emerald-950/30'
+          : 'border-neutral-700 bg-neutral-900'
       }`}
     >
       {traverseError && (
@@ -62,10 +66,19 @@ export function BatchDropzone({ disabled, onFiles }: BatchDropzoneProps) {
           {traverseError}
         </p>
       )}
-      <p className="text-lg font-semibold text-neutral-100">Drop event Pictures here</p>
+      <p className="text-lg font-semibold text-neutral-100">
+        {dragging
+          ? disabled
+            ? 'Wait for pictures to finish reading'
+            : 'Release to add'
+          : 'Drop event Pictures here'}
+      </p>
       <p className="mt-1 text-sm text-neutral-400">
         Event directories with subdirectories welcome. JPG, PNG, WebP, and Apple HEIC convert in your browser.
       </p>
+      <div data-testid="batch-empty-state" className="mt-2 text-xs text-neutral-400">
+        No Pictures yet. Choose files or a directory. Accepts JPG, PNG, WebP, and Apple HEIC.
+      </div>
       <div className="mt-4 flex flex-wrap justify-center gap-3">
         <label
           htmlFor={picturesId}

@@ -57,7 +57,8 @@ export function useBatchIngest() {
     const generation = generationRef.current
     const supported = filterPictureFiles(files)
     if (supported.length === 0) {
-      setError('No supported Pictures found. Use JPG, PNG, WebP, or HEIC.')
+      const names = files.map((file) => file.name).join(', ')
+      setError(names ? `Could not read Frame or Picture files ${names}. No supported Pictures found. Use JPG, PNG, WebP, or HEIC.` : 'No supported Pictures found. Use JPG, PNG, WebP, or HEIC.')
       return
     }
     setError(null)
@@ -106,7 +107,12 @@ export function useBatchIngest() {
               return {
                 ...picture,
                 status: 'error' as const,
-                error: settled.reason instanceof Error ? settled.reason.message : 'Could not read Picture',
+                error:
+                  settled.reason instanceof Error && settled.reason.message.includes(picture.name)
+                    ? settled.reason.message
+                    : settled.reason instanceof Error
+                      ? `Could not read Picture ${picture.name}: ${settled.reason.message}`
+                      : `Could not read Picture ${picture.name}`,
               }
             }),
           }),

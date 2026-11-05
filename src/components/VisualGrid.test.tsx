@@ -78,6 +78,42 @@ describe('VisualGrid', () => {
     expect(screen.getByText(/drop a directory above/i)).toBeInTheDocument()
   })
 
+  it('explains that no Framed Pictures exist yet', () => {
+    render(<VisualGrid frame={frame} pictures={[]} loading={false} onClear={() => {}} />)
+    expect(screen.getByTestId('visual-grid-empty-state')).toHaveTextContent(/no framed pictures yet/i)
+    expect(screen.getByTestId('visual-grid-empty-state')).toHaveTextContent(/add pictures/i)
+  })
+
+  it('explains Crop Mode and Batch Export with help tooltips', () => {
+    render(
+      <VisualGrid
+        frame={frame}
+        pictures={pictures.slice(0, 1)}
+        loading={false}
+        cropMode="crop-to-fill"
+        onCropModeChange={() => {}}
+        onBatchExport={() => {}}
+        onClear={() => {}}
+      />,
+    )
+    const cropHelp = screen.getByRole('button', { name: /about crop mode/i })
+    fireEvent.focus(cropHelp)
+    expect(screen.getByRole('tooltip')).toHaveTextContent(/crop mode/i)
+    expect(screen.getByRole('tooltip')).toHaveTextContent(/fill the aperture/i)
+    fireEvent.blur(cropHelp)
+
+    const exportHelp = screen.getByRole('button', { name: /about batch export/i })
+    fireEvent.focus(exportHelp)
+    expect(screen.getByRole('tooltip')).toHaveTextContent(/batch export/i)
+    expect(screen.getByRole('tooltip')).toHaveTextContent(/zip archive/i)
+    fireEvent.blur(exportHelp)
+
+    const autoHelp = screen.getByRole('button', { name: /about auto-centering/i })
+    fireEvent.focus(autoHelp)
+    expect(screen.getByRole('tooltip')).toHaveTextContent(/auto-centering/i)
+    fireEvent.blur(autoHelp)
+  })
+
   it('renders the Crop Mode toggle with Crop to Fill selected by default', () => {
     render(
       <VisualGrid

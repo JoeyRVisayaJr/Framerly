@@ -6,6 +6,7 @@ import {
   type CropMode,
 } from '../lib/framing'
 import type { BatchPicture } from '../lib/useBatchIngest'
+import { Tooltip } from './Tooltip'
 
 interface VisualGridProps {
   frame: StoredFrame | null
@@ -110,52 +111,68 @@ export function VisualGrid({
         </p>
 
         <div className="flex flex-wrap items-center gap-3">
-          <div
-            role="radiogroup"
-            aria-label="Crop Mode"
-            onKeyDown={handleCropModeKeyDown}
-            className="inline-flex rounded-xl border border-neutral-800 bg-neutral-900 p-1"
-          >
-            <button
-              type="button"
-              role="radio"
-              aria-checked={cropMode === 'crop-to-fill'}
-              tabIndex={cropMode === 'crop-to-fill' ? 0 : -1}
-              onClick={() => onCropModeChange?.('crop-to-fill')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all active:scale-[0.98] ${
-                cropMode === 'crop-to-fill'
-                  ? 'bg-neutral-100 text-neutral-950 shadow-sm'
-                  : 'text-neutral-400 hover:text-neutral-200'
-              }`}
+          <div className="flex items-center gap-1.5">
+            <div
+              role="radiogroup"
+              aria-label="Crop Mode"
+              onKeyDown={handleCropModeKeyDown}
+              className="inline-flex rounded-xl border border-neutral-800 bg-neutral-900 p-1"
             >
-              Crop to Fill
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={cropMode === 'fit-blurred'}
-              tabIndex={cropMode === 'fit-blurred' ? 0 : -1}
-              onClick={() => onCropModeChange?.('fit-blurred')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all active:scale-[0.98] ${
-                cropMode === 'fit-blurred'
-                  ? 'bg-neutral-100 text-neutral-950 shadow-sm'
-                  : 'text-neutral-400 hover:text-neutral-200'
-              }`}
-            >
-              Fit with Blurred Background
-            </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={cropMode === 'crop-to-fill'}
+                tabIndex={cropMode === 'crop-to-fill' ? 0 : -1}
+                onClick={() => onCropModeChange?.('crop-to-fill')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all active:scale-[0.98] ${
+                  cropMode === 'crop-to-fill'
+                    ? 'bg-neutral-100 text-neutral-950 shadow-sm'
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                Crop to Fill
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={cropMode === 'fit-blurred'}
+                tabIndex={cropMode === 'fit-blurred' ? 0 : -1}
+                onClick={() => onCropModeChange?.('fit-blurred')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all active:scale-[0.98] ${
+                  cropMode === 'fit-blurred'
+                    ? 'bg-neutral-100 text-neutral-950 shadow-sm'
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                Fit with Blurred Background
+              </button>
+            </div>
+            <Tooltip
+              label="About Crop Mode"
+              content="Crop Mode controls how Pictures fill the aperture: choose Crop to Fill or Fit with Blurred Background."
+            />
+            <Tooltip
+              label="About Auto-Centering"
+              content="Auto-Centering shifts picture focal points based on face/subject detection or optical center fallback."
+            />
           </div>
 
           {pictures.length > 0 && onBatchExport && (
-            <button
-              type="button"
-              onClick={(event) => onBatchExport?.(event.currentTarget)}
-              disabled={batchExportDisabled}
-              title={batchExportDisabled ? 'Batch Export is unavailable right now' : undefined}
-              className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-semibold text-emerald-950 transition-transform enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Export All as ZIP
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={(event) => onBatchExport?.(event.currentTarget)}
+                disabled={batchExportDisabled}
+                title={batchExportDisabled ? 'Batch Export is unavailable right now' : undefined}
+                className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-semibold text-emerald-950 transition-transform enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Export All as ZIP
+              </button>
+              <Tooltip
+                label="About Batch Export"
+                content="Batch Export renders full-resolution Framed Pictures and packages them into a downloadable ZIP archive."
+              />
+            </div>
           )}
 
           {pictures.length > 0 && (
@@ -173,9 +190,15 @@ export function VisualGrid({
       </div>
 
       {pictures.length === 0 && !loading && (
-        <p className="mt-4 rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-6 text-center text-sm text-neutral-400">
-          No Pictures yet. Drop a directory above to fill the Visual Grid.
-        </p>
+        <div
+          data-testid="visual-grid-empty-state"
+          className="mt-4 rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-8 text-center"
+        >
+          <p className="text-sm font-semibold text-neutral-300">No Framed Pictures yet</p>
+          <p className="mt-1 text-xs text-neutral-400">
+            Add Pictures or drop a directory above to preview them in this Frame.
+          </p>
+        </div>
       )}
 
       {(pictures.length > 0 || loading) && (

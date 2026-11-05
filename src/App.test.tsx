@@ -100,4 +100,43 @@ describe('App Batch and Adjustment wiring', () => {
     expect(input.adjustment).toEqual({ panX: 0, panY: 0, zoom: 2, rotation: 0 })
     expect(input.frame?.width).toBe(1080)
   })
+
+  it('names the Frame file when a corrupt image is rejected', async () => {
+    render(<App />)
+    const file = new File(['not a png'], 'broken-frame.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText(/choose a png frame/i), { target: { files: [file] } })
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('broken-frame.png')
+  })
+
+  it('names the supported formats when no supported Pictures arrive', async () => {
+    render(<App />)
+    const file = new File(['x'], 'notes.txt', { type: 'text/plain' })
+    fireEvent.change(screen.getByLabelText(/choose pictures/i), { target: { files: [file] } })
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/jpg/i)
+    expect(alert).toHaveTextContent(/png/i)
+    expect(alert).toHaveTextContent(/webp/i)
+    expect(alert).toHaveTextContent(/heic/i)
+  })
+
+  it('shows frame drop feedback on drag over and clears it on drop', async () => {
+    render(<App />)
+    const zone = screen.getByText(/drop a png frame here/i).closest('div')!
+    fireEvent.dragOver(zone, {})
+    expect(zone).toHaveAttribute('data-drop-state', 'accepted')
+    expect(zone).toHaveTextContent(/release to replace/i)
+    fireEvent.drop(zone, { dataTransfer: { files: [] } })
+    expect(zone).not.toHaveAttribute('data-drop-state')
+  })
+
+  it('shows batch drop feedback on drag over and clears it on drop', async () => {
+    render(<App />)
+    const zone = screen.getByText(/drop event pictures here/i).closest('div')!
+    fireEvent.dragOver(zone, {})
+    expect(zone).toHaveAttribute('data-drop-state', 'accepted')
+    expect(zone).toHaveTextContent(/release to add/i)
+    fireEvent.drop(zone, { dataTransfer: { files: [] } })
+    expect(zone).not.toHaveAttribute('data-drop-state')
+  })
 })

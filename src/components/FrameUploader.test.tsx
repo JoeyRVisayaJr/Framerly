@@ -95,4 +95,27 @@ describe('FrameUploader', () => {
     fireEvent.click(screen.getByRole('button', { name: /clear frame/i }))
     expect(onClear).toHaveBeenCalledTimes(1)
   })
+
+  it('explains that no Frame is uploaded yet', () => {
+    render(<FrameUploader frame={null} loading={false} error={null} onSelect={() => {}} onClear={() => {}} />)
+    expect(screen.getByTestId('frame-empty-state')).toHaveTextContent(/no frame yet/i)
+    expect(screen.getByTestId('frame-empty-state')).toHaveTextContent(/png frame/i)
+  })
+
+  it('shows drop feedback on drag over and clears it on drop', () => {
+    render(<FrameUploader frame={null} loading={false} error={null} onSelect={() => {}} onClear={() => {}} />)
+    const zone = screen.getByText(/drop a png frame here/i).closest('div')!
+    fireEvent.dragOver(zone, {})
+    expect(zone).toHaveAttribute('data-drop-state', 'accepted')
+    expect(zone).toHaveTextContent(/release to replace/i)
+    fireEvent.drop(zone, { dataTransfer: { files: [] } })
+    expect(zone).not.toHaveAttribute('data-drop-state')
+  })
+
+  it('explains the Aperture with a help tooltip', () => {
+    render(<FrameUploader frame={frame} loading={false} error={null} onSelect={() => {}} onClear={() => {}} />)
+    const trigger = screen.getByRole('button', { name: /about the aperture/i })
+    fireEvent.focus(trigger)
+    expect(screen.getByRole('tooltip')).toHaveTextContent(/transparent region/i)
+  })
 })

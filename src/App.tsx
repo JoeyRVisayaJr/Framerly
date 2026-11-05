@@ -97,7 +97,7 @@ export default function App() {
 
   const handleSelect = useCallback(async (file: File) => {
     if (!isPngFile(file)) {
-      setError('Frame must be a PNG file')
+      setError(`Frame file ${file.name} must be a PNG file`)
       return
     }
     setLoading(true)
@@ -111,7 +111,8 @@ export default function App() {
       }
       setFrame(decoded)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not read the Frame file')
+      if (e instanceof Error && e.message.includes(file.name)) throw e
+      throw new Error(`Could not decode Frame file ${file.name} as PNG`, { cause: e })
     } finally {
       setLoading(false)
     }

@@ -58,4 +58,28 @@ describe('BatchDropzone', () => {
     })
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
   })
+
+  it('explains that no Pictures are uploaded yet', () => {
+    render(<BatchDropzone disabled={false} onFiles={() => {}} />)
+    expect(screen.getByTestId('batch-empty-state')).toHaveTextContent(/no pictures yet/i)
+    expect(screen.getByTestId('batch-empty-state')).toHaveTextContent(/jpg/i)
+  })
+
+  it('shows drop feedback on drag over and clears it on drop', () => {
+    render(<BatchDropzone disabled={false} onFiles={() => {}} />)
+    const zone = screen.getByText(/drop event pictures/i).closest('div')!
+    fireEvent.dragOver(zone, {})
+    expect(zone).toHaveAttribute('data-drop-state', 'accepted')
+    expect(zone).toHaveTextContent(/release to add/i)
+    fireEvent.drop(zone, { dataTransfer: { files: [] } })
+    expect(zone).not.toHaveAttribute('data-drop-state')
+  })
+
+  it('explains that dragging is unavailable while loading', () => {
+    render(<BatchDropzone disabled onFiles={() => {}} />)
+    const zone = screen.getByText(/drop event pictures/i).closest('div')!
+    fireEvent.dragOver(zone, {})
+    expect(zone).toHaveAttribute('data-drop-state', 'rejected')
+    expect(zone).toHaveTextContent(/wait for pictures to finish reading/i)
+  })
 })
