@@ -111,8 +111,7 @@ export default function App() {
       }
       setFrame(decoded)
     } catch (e) {
-      if (e instanceof Error && e.message.includes(file.name)) throw e
-      throw new Error(`Could not decode Frame file ${file.name} as PNG`, { cause: e })
+      setError(e instanceof Error ? e.message : `Could not decode Frame file ${file.name} as PNG`)
     } finally {
       setLoading(false)
     }
