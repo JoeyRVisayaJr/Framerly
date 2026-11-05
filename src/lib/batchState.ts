@@ -1,5 +1,6 @@
 import { DEFAULT_ADJUSTMENT, normalizeAdjustment, type Adjustment, type AdjustmentInput } from './framing'
 import type { FocalPoint } from './subjectDetection'
+import type { ExifMetadata } from './exif'
 
 export type BatchPictureStatus = 'loading' | 'ready' | 'error'
 
@@ -14,6 +15,10 @@ export interface BatchPicture {
   focalPoint?: FocalPoint
   /** The original Picture file, kept in memory so single-Picture and Batch export can render at full resolution. */
   file?: File
+  /** Preserved raw APP1 EXIF segment extracted from the original Picture file. */
+  exifSegment?: Uint8Array | null
+  /** Parsed EXIF metadata for chronological ordering and info display. */
+  exif?: ExifMetadata | null
   /** Manual pan/zoom/rotation for this Picture. Seeded to the auto-centered default on ingest. */
   adjustment: Adjustment
 }

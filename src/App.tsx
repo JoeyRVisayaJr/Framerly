@@ -308,7 +308,7 @@ export default function App() {
   }, [])
 
   const handleStartExport = useCallback(
-    (archiveName: string, format: PictureExportFormat) => {
+    (archiveName: string, format: PictureExportFormat, preserveExif?: boolean) => {
       if (!frame) return
       const batchPictures = pictures.filter(isReadyPicture).map((picture) => ({
         id: picture.id,
@@ -317,6 +317,7 @@ export default function App() {
         cropMode,
         focalPoint: picture.focalPoint,
         adjustment: picture.adjustment,
+        exifSegment: picture.exifSegment,
       }))
       if (batchPictures.length === 0) return
       const ingestFailures: BatchExportFailure[] = pictures.flatMap((picture) =>
@@ -347,6 +348,7 @@ export default function App() {
               frame,
               archiveName,
               format,
+              preserveExif,
               signal: controller.signal,
             },
             {

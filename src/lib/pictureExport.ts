@@ -3,6 +3,7 @@ import type { StoredFrame } from './frameStore'
 import { convertHeicFile } from './pictureDecode'
 import { isHeicFile } from './batchIngest'
 import { exportEncodeOptions, type PictureExportFormat } from './exportFormat'
+import { extractExifFromBlob, injectExifIntoBlob } from './exif'
 import type { FocalPoint } from './subjectDetection'
 
 export { EXPORT_JPEG_QUALITY } from './exportFormat'
@@ -31,6 +32,8 @@ export interface FramedPictureFileInput {
   adjustment?: AdjustmentInput
   /** Output encoding. Defaults to high-quality JPEG. */
   format?: PictureExportFormat
+  /** Preserved raw APP1 EXIF segment from the original Picture file. */
+  exifSegment?: Uint8Array | null
 }
 
 export interface RenderedFramedPictureFile {
@@ -141,7 +144,18 @@ export async function renderFramedPictureFile(
       frameIsOpaque: input.frame.detectedAperture === null,
     })
     const encode = exportEncodeOptions(input.format ?? 'jpeg')
-    const blob = await toBlob(canvas, encode.type, encode.quality)
+    const rendered = await toBlob(canvas, encode.type, encode.quality)
+    // Preserve original capture metadata: single-Picture downloads re-inject
+    // the caller's preserved APP1 segment, or extract it from the source file
+    // when the caller did not supply one.
+    const segment =
+      input.exifSegment !== undefined
+        ? input.exifSegment
+        : !isHeicFile(input.file)
+          ? (await extractExifFromBlob(input.file).catch(() => null))?.segment ?? null
+          : null
+    const blob =
+      input.format !== 'png' && segment ? await injectExifIntoBlob(rendered, segment) : rendered
     return { blob, filename: input.file.name }
   } finally {
     bitmap.close?.()

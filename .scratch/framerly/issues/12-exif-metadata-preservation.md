@@ -4,27 +4,28 @@
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Ingestion & extraction
 
-- [ ] Zero-dependency client-side EXIF APP1 parser (`src/lib/exif.ts`) extracting metadata segments from JPEG Picture files during batch ingestion
-- [ ] Preserved metadata attached ephemerally to the in-memory `BatchPicture` state model without increasing thumbnail footprint
-- [ ] Non-JPEG files (PNG, WebP, HEIC) handle metadata gracefully without error
+- [x] Zero-dependency client-side EXIF APP1 parser (`src/lib/exif.ts`) extracting metadata segments from JPEG Picture files during batch ingestion
+- [x] Preserved metadata attached ephemerally to the in-memory `BatchPicture` state model without increasing thumbnail footprint
+- [x] Non-JPEG files (PNG, WebP, HEIC) handle metadata gracefully without error
 
 ## Export & re-injection
 
-- [ ] Web Worker Batch Export (`batchExport.worker.ts`) receives the preserved EXIF payload alongside rendering commands
-- [ ] After rendering full-resolution Framed Pictures to JPEG blobs, the preserved EXIF APP1 segment is re-injected before the blob is streamed to JSZip
-- [ ] Single Picture download similarly preserves and re-injects EXIF data
-- [ ] Batch Export dialog provides a toggle to enable or disable EXIF preservation (default: enabled)
+- [x] Web Worker Batch Export (`batchExport.worker.ts`) receives the preserved EXIF payload alongside rendering commands
+- [x] After rendering full-resolution Framed Pictures to JPEG blobs, the preserved EXIF APP1 segment is re-injected before the blob is streamed to JSZip
+- [x] Single Picture download similarly preserves and re-injects EXIF data
+- [x] Batch Export dialog provides a toggle to enable or disable EXIF preservation (default: enabled)
 
 ## Seam testing & verification
 
-- [ ] Unit tests for EXIF segment extraction from sample JPEG buffers
-- [ ] Unit tests for EXIF re-injection into freshly generated canvas JPEG blobs
-- [ ] End-to-end / worker test asserting exported JPEG files contain original capture timestamps
+- [x] Unit tests for EXIF segment extraction from sample JPEG buffers
+- [x] Unit tests for EXIF re-injection into freshly generated canvas JPEG blobs
+- [x] End-to-end / worker test asserting exported JPEG files contain original capture timestamps
 
 ## Comments
 
 - 2026-11-06: Created based on Gemini architecture exploration and user request. Solves the issue where HTML5 Canvas encoding strips all EXIF metadata and breaks event timelines upon export.
+- 2026-11-06: Completed by OpenCode agent. Zero-dependency APP1 parser and injector in src/lib/exif.ts preserving capture timestamps and camera metadata across Web Worker batch export and single Picture export, with dialog toggle.

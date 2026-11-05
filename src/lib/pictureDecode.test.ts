@@ -1,6 +1,22 @@
 import { describe, expect, it, vi } from 'vitest'
 import { decodePictureFile } from './pictureDecode'
 
+vi.mock('./exif', () => ({
+  extractExifFromBlob: vi.fn(async () => ({
+    segment: null,
+    metadata: {
+      make: null,
+      model: null,
+      dateTimeOriginal: null,
+      exposureTime: null,
+      fNumber: null,
+      iso: null,
+      focalLength: null,
+    },
+  })),
+  parseExifSegment: vi.fn(),
+}))
+
 function pictureFile(name: string, type: string): File {
   return new File(['x'], name, { type })
 }
@@ -63,5 +79,28 @@ describe('decodePictureFile', () => {
         renderThumbnail: vi.fn(),
       }),
     ).rejects.toThrow('Could not read Picture broken.jpg')
+  })
+
+  it('attaches preserved EXIF segment and capture metadata to the decoded Picture', async () => {
+    const file = pictureFile('a.jpg', 'image/jpeg')
+    const bitmap = { width: 4000, height: 3000, close: vi.fn() }
+    const loadBitmap = vi.fn().mockResolvedValue(bitmap)
+    const renderThumbnail = vi.fn().mockResolvedValue('data:preview-a')
+    const { extractExifFromBlob } = await import('./exif')
+    vi.mocked(extractExifFromBlob).mockResolvedValueOnce({
+      segment: new Uint8Array([0x45, 0x78, 0x69, 0x66]),
+      metadata: {
+        make: 'Canon',
+        model: 'EOS R5',
+        dateTimeOriginal: '2026:10:20 14:30:00',
+        exposureTime: '1/250',
+        fNumber: 2.8,
+        iso: 400,
+        focalLength: 50,
+      },
+    })
+    const result = await decodePictureFile(file, { loadBitmap, renderThumbnail })
+    expect(result.exifSegment).toEqual(new Uint8Array([0x45, 0x78, 0x69, 0x66]))
+    expect(result.exif?.dateTimeOriginal).toBe('2026:10:20 14:30:00')
   })
 })

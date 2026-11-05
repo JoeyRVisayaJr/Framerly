@@ -1,4 +1,5 @@
 import { exportEncodeOptions } from './exportFormat'
+import { injectExifIntoBlob } from './exif'
 import { renderFramedPicture } from './framing'
 import type { WorkerRenderRequest, WorkerRenderResponse } from './batchExportProtocol'
 
@@ -44,7 +45,11 @@ async function handleRequest(request: WorkerRenderRequest): Promise<void> {
         adjustment: request.adjustment,
         frameIsOpaque: request.frame.detectedAperture === null,
       })
-      const blob = await canvas.convertToBlob(exportEncodeOptions(request.format))
+      const encoded = await canvas.convertToBlob(exportEncodeOptions(request.format))
+      const blob =
+        request.format === 'jpeg' && request.exifSegment
+          ? await injectExifIntoBlob(encoded, request.exifSegment)
+          : encoded
       scope.postMessage({ id: request.id, blob })
     } finally {
       picture.close?.()

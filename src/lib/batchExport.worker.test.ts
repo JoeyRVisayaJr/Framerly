@@ -5,6 +5,11 @@ vi.mock('./pictureExport', () => ({
   triggerDownloadDefault: vi.fn(),
 }))
 
+vi.mock('./exif', () => ({
+  extractExifFromBlob: vi.fn(async () => ({ segment: null, metadata: {} })),
+  injectExifIntoBlob: vi.fn(async (blob: Blob) => blob),
+}))
+
 import {
   canUseWorkerRendering,
   createDefaultPictureRenderer,
