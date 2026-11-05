@@ -1,15 +1,38 @@
 import { useId, useState } from 'react'
 import type { StoredFrame } from '../lib/frameStore'
 import type { ApertureRect } from '../lib/framing'
+import type { FramePreset } from '../lib/indexedDbFrameStore'
 import { ApertureCalibrator } from './ApertureCalibrator'
+import { FramePresetPicker } from './FramePresetPicker'
 import { Tooltip } from './Tooltip'
 
-interface FrameUploaderProps {
+/**
+ * Properties for the FrameUploader component.
+ */
+export interface FrameUploaderProps {
+  /** The currently active Frame, or null if none is selected. */
   frame: StoredFrame | null
+  /** Whether a Frame file is currently decoding. */
   loading: boolean
+  /** Error message to display, or null. */
   error: string | null
+  /** Saved Frame Presets in the library. */
+  presets?: FramePreset[]
+  /** ID of the active Frame Preset, or null if none. */
+  activePresetId?: string | null
+  /** Callback fired when a Frame Preset is selected. */
+  onSelectPreset?: (presetId: string) => void
+  /** Callback fired when a new Frame Preset file is added with an optional name. */
+  onAddPreset?: (file: File, optionalName?: string) => void
+  /** Callback fired when a Frame Preset is renamed. */
+  onRenamePreset?: (presetId: string, newName: string) => void
+  /** Callback fired when a Frame Preset is deleted. */
+  onDeletePreset?: (presetId: string) => void
+  /** Callback fired when a Frame file is selected directly. */
   onSelect: (file: File) => void
+  /** Callback fired when clearing the active Frame. */
   onClear: () => void
+  /** Optional callback fired when Aperture Calibration is confirmed. */
   onCalibrate?: (aperture: ApertureRect) => void
 }
 
@@ -50,13 +73,22 @@ function ApertureBox({ frame }: { frame: StoredFrame }) {
 
 /**
  * FrameUploader: drop or pick a PNG Frame, preview it with the detected
- * Aperture, replace it, and clear it. Reports load errors through `error`
- * and busy state through `loading`.
+ * Aperture, replace it, clear it, and manage Frame Presets. Reports load
+ * errors through `error` and busy state through `loading`.
+ *
+ * @param props - Component properties.
+ * @returns Rendered Frame upload element.
  */
 export function FrameUploader({
   frame,
   loading,
   error,
+  presets = [],
+  activePresetId = null,
+  onSelectPreset,
+  onAddPreset,
+  onRenamePreset,
+  onDeletePreset,
   onSelect,
   onClear,
   onCalibrate,
@@ -84,6 +116,20 @@ export function FrameUploader({
 
   return (
     <section aria-label="Frame upload" className="w-full max-w-2xl">
+      {onAddPreset && onSelectPreset && onRenamePreset && onDeletePreset && (
+        <div className="mb-4">
+          <FramePresetPicker
+            presets={presets}
+            activePresetId={activePresetId}
+            onSelectPreset={onSelectPreset}
+            onAddFrame={onAddPreset}
+            onRenamePreset={onRenamePreset}
+            onDeletePreset={onDeletePreset}
+            disabled={loading}
+          />
+        </div>
+      )}
+
       {error && (
         <p role="alert" className="mb-4 rounded-xl border border-red-500/40 bg-red-950/60 px-4 py-3 text-sm text-red-200">
           {error}

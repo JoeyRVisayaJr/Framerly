@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { saveFrame } from './lib/frameStore'
+import { defaultFramePresetStore } from './lib/indexedDbFrameStore'
 import { downloadFramedPicture } from './lib/pictureExport'
 
 vi.mock('./lib/pictureDecode', () => ({
@@ -18,8 +19,13 @@ vi.mock('./lib/pictureExport', () => ({
   downloadFramedPicture: vi.fn(),
 }))
 
-afterEach(() => {
+beforeEach(async () => {
+  await defaultFramePresetStore.clear()
+})
+
+afterEach(async () => {
   window.localStorage.clear()
+  await defaultFramePresetStore.clear()
   vi.mocked(downloadFramedPicture).mockReset()
 })
 
@@ -138,5 +144,90 @@ describe('App Batch and Adjustment wiring', () => {
     expect(zone).toHaveTextContent(/release to add/i)
     fireEvent.drop(zone, { dataTransfer: { files: [] } })
     expect(zone).not.toHaveAttribute('data-drop-state')
+  })
+
+  it('switches active Frame Preset and reactively updates Visual Grid without clearing the Batch', async () => {
+    const blob = new Blob([new Uint8Array(10)], { type: 'image/png' })
+    await defaultFramePresetStore.savePreset({
+      name: 'Story 9:16',
+      width: 1080,
+      height: 1920,
+      aperture: { x: 120, y: 200, width: 840, height: 1260 },
+      blob,
+      dataUrl: 'data:image/png;base64,STORY',
+    })
+
+    await defaultFramePresetStore.savePreset({
+      name: 'Square 1:1',
+      width: 1080,
+      height: 1080,
+      aperture: { x: 108, y: 108, width: 864, height: 864 },
+      blob,
+      dataUrl: 'data:image/png;base64,SQUARE',
+    })
+
+    render(<App />)
+
+    // Wait for presets to load
+    await screen.findByText('Story 9:16')
+    expect(screen.getByText('Square 1:1')).toBeInTheDocument()
+
+    // Add a picture to the Batch
+    const pictureCard = await dropOnePicture()
+    expect(pictureCard.style.aspectRatio).toBe('1080 / 1920')
+
+    // Switch active Frame Preset to Square 1:1
+    fireEvent.click(screen.getByRole('button', { name: /select square 1:1/i }))
+
+    // Card reactively adjusts to 1080 / 1080 without requiring re-ingestion of the Batch
+    await waitFor(() => {
+      expect(pictureCard.style.aspectRatio).toBe('1080 / 1080')
+    })
+    expect(screen.getByRole('button', { name: /adjust img_0412\.jpg/i })).toBeInTheDocument()
+  })
+
+  it('allows renaming an existing Frame Preset with confirmation', async () => {
+    const blob = new Blob([new Uint8Array(10)], { type: 'image/png' })
+    await defaultFramePresetStore.savePreset({
+      name: 'Gala 2026 - Story 9:16',
+      width: 1080,
+      height: 1920,
+      aperture: null,
+      blob,
+      dataUrl: 'data:image/png;base64,AAA',
+    })
+
+    render(<App />)
+    await screen.findByText('Gala 2026 - Story 9:16')
+
+    fireEvent.click(screen.getByRole('button', { name: /rename gala 2026 - story 9:16/i }))
+    const input = screen.getByLabelText(/rename preset/i)
+    fireEvent.change(input, { target: { value: 'Gala 2026 - Final 9:16' } })
+    fireEvent.click(screen.getByRole('button', { name: /save rename/i }))
+
+    await screen.findByText('Gala 2026 - Final 9:16')
+    expect(screen.queryByText('Gala 2026 - Story 9:16')).not.toBeInTheDocument()
+  })
+
+  it('deletes a Frame Preset after confirmation', async () => {
+    const blob = new Blob([new Uint8Array(10)], { type: 'image/png' })
+    await defaultFramePresetStore.savePreset({
+      name: 'Gala 2026 - To Delete',
+      width: 1080,
+      height: 1920,
+      aperture: null,
+      blob,
+      dataUrl: 'data:image/png;base64,AAA',
+    })
+
+    render(<App />)
+    await screen.findByText('Gala 2026 - To Delete')
+
+    fireEvent.click(screen.getByRole('button', { name: /delete gala 2026 - to delete/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm delete gala 2026 - to delete/i }))
+
+    await waitFor(() => {
+      expect(screen.queryByText('Gala 2026 - To Delete')).not.toBeInTheDocument()
+    })
   })
 })

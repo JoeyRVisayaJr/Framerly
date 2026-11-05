@@ -349,5 +349,53 @@ describe('VisualGrid', () => {
     fireEvent.click(adjust)
     expect(onOpenAdjustment).not.toHaveBeenCalled()
   })
+
+  describe('Frame reactivity', () => {
+    it('reactively adjusts card aspect ratio and aperture bounds when switching active Frame', () => {
+      const squareFrame: StoredFrame = {
+        dataUrl: 'data:image/png;base64,SQUARE',
+        width: 1080,
+        height: 1080,
+        aperture: { x: 108, y: 108, width: 864, height: 864 },
+      }
+
+      const storyFrame: StoredFrame = {
+        dataUrl: 'data:image/png;base64,STORY',
+        width: 1080,
+        height: 1920,
+        aperture: { x: 120, y: 200, width: 840, height: 1260 },
+      }
+
+      const { rerender } = render(
+        <VisualGrid frame={squareFrame} pictures={pictures.slice(0, 2)} loading={false} onClear={() => {}} />,
+      )
+
+      // Initial 1:1 square frame assertions
+      const initialCard = screen.getByRole('button', { name: /adjust a\.jpg/i })
+      expect(initialCard.style.aspectRatio).toBe('1080 / 1080')
+      let box = screen.getAllByTestId('aperture-box')[0]
+      expect(box.style.left).toBe('10%')
+      expect(box.style.top).toBe('10%')
+      expect(box.style.width).toBe('80%')
+      expect(box.style.height).toBe('80%')
+
+      // Switch active Frame to 9:16 story frame
+      rerender(
+        <VisualGrid frame={storyFrame} pictures={pictures.slice(0, 2)} loading={false} onClear={() => {}} />,
+      )
+
+      // Card aspect ratio and aperture update immediately while keeping the batch pictures
+      const updatedCard = screen.getByRole('button', { name: /adjust a\.jpg/i })
+      expect(updatedCard.style.aspectRatio).toBe('1080 / 1920')
+      box = screen.getAllByTestId('aperture-box')[0]
+      expect(box.style.left).toContain('11.11')
+      expect(box.style.top).toContain('10.41')
+      expect(box.style.width).toContain('77.77')
+
+      // The Batch pictures remain fully intact
+      expect(screen.getByRole('img', { name: /a\.jpg framed/i })).toBeInTheDocument()
+      expect(screen.getByRole('img', { name: /b\.heic framed/i })).toBeInTheDocument()
+    })
+  })
 })
 

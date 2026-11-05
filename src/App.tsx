@@ -13,6 +13,11 @@ import {
   saveFrame,
   type StoredFrame,
 } from './lib/frameStore'
+import {
+  defaultFramePresetStore,
+  dataUrlToBlob,
+  type FramePreset,
+} from './lib/indexedDbFrameStore'
 import type { AdjustmentInput, ApertureRect, CropMode } from './lib/framing'
 import { downloadFramedPicture } from './lib/pictureExport'
 import {
@@ -56,13 +61,19 @@ function describeBatchExportResult(result: BatchExportResult): string {
 }
 
 /**
- * App: top-level wiring for the framing workflow: the FrameUploader, the
- * Batch Dropzone, the Visual Grid with the global Crop Mode toggle, and the
- * Adjustment Modal for one Picture. Owns Frame persistence and download
- * error notices.
+ * App: top-level wiring for the framing workflow: the FrameUploader with the
+ * persistent Frame Preset Library, the Batch Dropzone, the Visual Grid with the
+ * global Crop Mode toggle, and the Adjustment Modal for one Picture.
  */
 export default function App() {
-  const [frame, setFrame] = useState<StoredFrame | null>(null)
+  const [presets, setPresets] = useState<FramePreset[]>([])
+  const [activePresetId, setActivePresetId] = useState<string | null>(null)
+  const [frame, setFrame] = useState<StoredFrame | null>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return loadFrame(window.localStorage)
+    }
+    return null
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cropMode, setCropMode] = useState<CropMode>('crop-to-fill')
@@ -92,10 +103,52 @@ export default function App() {
     adjustingPicture !== null || batchLoading || exporting || !frame || readyPictures.length === 0
 
   useEffect(() => {
-    setFrame(loadFrame(window.localStorage))
+    let cancelled = false
+    void (async () => {
+      try {
+        const storedPresets = await defaultFramePresetStore.listPresets()
+        if (cancelled) return
+        if (storedPresets.length > 0) {
+          setPresets(storedPresets)
+          setActivePresetId(storedPresets[0].id)
+          setFrame(storedPresets[0])
+          return
+        }
+      } catch {
+        // Fall back to legacy localStorage
+      }
+
+      const legacy = loadFrame(window.localStorage)
+      if (legacy && !cancelled) {
+        setFrame(legacy)
+        try {
+          const blob = dataUrlToBlob(legacy.dataUrl)
+          const saved = await defaultFramePresetStore.savePreset({
+            name: `Frame ${legacy.width} x ${legacy.height}`,
+            width: legacy.width,
+            height: legacy.height,
+            aperture: legacy.aperture,
+            detectedAperture: legacy.detectedAperture,
+            calibrated: legacy.calibrated,
+            blob,
+            dataUrl: legacy.dataUrl,
+          })
+          if (!cancelled) {
+            setPresets([saved])
+            setActivePresetId(saved.id)
+          }
+        } catch {
+          // Ignore legacy migration error
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const handleSelect = useCallback(async (file: File) => {
+  const handleSelect = useCallback(async (file: File, optionalName?: string) => {
     if (!isPngFile(file)) {
       setError(`Frame file ${file.name} must be a PNG file`)
       return
@@ -104,12 +157,30 @@ export default function App() {
     setError(null)
     try {
       const decoded = await decodeFrameFile(file)
+      const baseName = file.name.replace(/\.[^/.]+$/, '')
+      const presetName =
+        optionalName?.trim() || baseName || `Frame ${decoded.width} x ${decoded.height}`
+
+      const savedPreset = await defaultFramePresetStore.savePreset({
+        name: presetName,
+        width: decoded.width,
+        height: decoded.height,
+        aperture: decoded.aperture,
+        detectedAperture: decoded.detectedAperture,
+        calibrated: decoded.calibrated,
+        blob: file,
+        dataUrl: decoded.dataUrl,
+      })
+
+      setPresets((current) => [...current.filter((p) => p.id !== savedPreset.id), savedPreset])
+      setActivePresetId(savedPreset.id)
+      setFrame(savedPreset)
+
       try {
-        saveFrame(window.localStorage, decoded)
+        saveFrame(window.localStorage, savedPreset)
       } catch {
-        setError('Frame loaded, but it is too large to persist. It will be lost on reload.')
+        // Ignore localStorage quota warnings since IndexedDB holds the high-res preset safely
       }
-      setFrame(decoded)
     } catch (e) {
       setError(e instanceof Error ? e.message : `Could not decode Frame file ${file.name} as PNG`)
     } finally {
@@ -117,28 +188,93 @@ export default function App() {
     }
   }, [])
 
+  const handleSelectPreset = useCallback(
+    (presetId: string) => {
+      const target = presets.find((p) => p.id === presetId)
+      if (target) {
+        setActivePresetId(target.id)
+        setFrame(target)
+        try {
+          saveFrame(window.localStorage, target)
+        } catch {
+          // Ignore localStorage quota errors
+        }
+      }
+    },
+    [presets],
+  )
+
+  const handleRenamePreset = useCallback(async (presetId: string, newName: string) => {
+    try {
+      const updated = await defaultFramePresetStore.updatePreset(presetId, { name: newName })
+      setPresets((current) => current.map((p) => (p.id === presetId ? updated : p)))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not rename Frame Preset')
+    }
+  }, [])
+
+  const handleDeletePreset = useCallback(
+    async (presetId: string) => {
+      try {
+        await defaultFramePresetStore.deletePreset(presetId)
+        setPresets((current) => {
+          const next = current.filter((p) => p.id !== presetId)
+          if (activePresetId === presetId) {
+            if (next.length > 0) {
+              setActivePresetId(next[0].id)
+              setFrame(next[0])
+            } else {
+              setActivePresetId(null)
+              setFrame(null)
+              clearFrame(window.localStorage)
+            }
+          }
+          return next
+        })
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Could not delete Frame Preset')
+      }
+    },
+    [activePresetId],
+  )
+
   const handleClear = useCallback(() => {
     clearFrame(window.localStorage)
+    setActivePresetId(null)
     setFrame(null)
     setError(null)
   }, [])
 
-  const handleCalibrate = useCallback((calibratedAperture: ApertureRect) => {
-    setFrame((current) => {
-      if (!current) return null
-      const updated: StoredFrame = {
-        ...current,
-        aperture: calibratedAperture,
-        calibrated: true,
+  const handleCalibrate = useCallback(
+    (calibratedAperture: ApertureRect) => {
+      setFrame((current) => {
+        if (!current) return null
+        const updated: StoredFrame = {
+          ...current,
+          aperture: calibratedAperture,
+          calibrated: true,
+        }
+        try {
+          saveFrame(window.localStorage, updated)
+        } catch {
+          // Ignore localStorage quota warning
+        }
+        return updated
+      })
+
+      if (activePresetId) {
+        void defaultFramePresetStore
+          .updatePreset(activePresetId, {
+            aperture: calibratedAperture,
+            calibrated: true,
+          })
+          .then((updated) => {
+            setPresets((current) => current.map((p) => (p.id === activePresetId ? updated : p)))
+          })
       }
-      try {
-        saveFrame(window.localStorage, updated)
-      } catch {
-        setError('Calibrated Aperture saved for this session, but it is too large to persist.')
-      }
-      return updated
-    })
-  }, [])
+    },
+    [activePresetId],
+  )
 
   const handleAdjust = useCallback(
     (adjustment: AdjustmentInput) => {
@@ -188,7 +324,6 @@ export default function App() {
           ? [{ name: picture.name, message: picture.error ?? 'Could not read Picture' }]
           : [],
       )
-      // The progress bar and the completion notice must show the same total.
       const exportTotal = batchPictures.length + ingestFailures.length
 
       const controller = new AbortController()
@@ -269,7 +404,6 @@ export default function App() {
           adjustment: picture.adjustment,
         })
       } catch (e) {
-        // Keep the Adjustment Modal open so no work is lost.
         setNotice(
           `Could not download ${picture.name}: ${e instanceof Error ? e.message : 'unknown error'}`,
         )
@@ -291,6 +425,12 @@ export default function App() {
           frame={frame}
           loading={loading}
           error={error}
+          presets={presets}
+          activePresetId={activePresetId}
+          onSelectPreset={handleSelectPreset}
+          onAddPreset={handleSelect}
+          onRenamePreset={handleRenamePreset}
+          onDeletePreset={handleDeletePreset}
           onSelect={handleSelect}
           onClear={handleClear}
           onCalibrate={handleCalibrate}
