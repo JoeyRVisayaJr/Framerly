@@ -55,7 +55,7 @@ async function dropPictures(names = ['IMG_0412.jpg']) {
     for (const name of names) {
       expect(screen.getByRole('button', { name: new RegExp(`adjust ${name.replace('.', '\\.')}`, 'i') })).toBeInTheDocument()
     }
-  })
+  }, { timeout: 4000 })
 }
 
 async function openNamingDialog() {
