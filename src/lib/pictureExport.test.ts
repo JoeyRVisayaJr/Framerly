@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { renderFramedPictureFile, type PictureExportDeps } from './pictureExport'
 import type { StoredFrame } from './frameStore'
 
+vi.mock('./exif', () => ({
+  extractExifFromBlob: vi.fn(async () => ({ segment: null, metadata: {} })),
+  injectExifIntoBlob: vi.fn(async (blob: Blob) => blob),
+}))
+
 const frame: StoredFrame = {
   dataUrl: 'data:image/png;base64,FRAME',
   width: 1080,
@@ -94,5 +99,17 @@ describe('renderFramedPictureFile', () => {
     await renderFramedPictureFile({ file: new File(['x'], 'b.heic', { type: 'image/heic' }), frame }, { ...injected, convertHeic })
 
     expect(convertHeic).toHaveBeenCalledTimes(2)
+  })
+
+  it('re-injects the preserved EXIF segment into the exported JPEG blob', async () => {
+    const { injected } = deps()
+    const segment = new Uint8Array([0x45, 0x78, 0x69, 0x66, 0x00, 0x00, 0x49, 0x49])
+    const { injectExifIntoBlob } = await import('./exif')
+    const result = await renderFramedPictureFile(
+      { file: pictureFile, frame, exifSegment: segment },
+      injected,
+    )
+    expect(injectExifIntoBlob).toHaveBeenCalledWith(expect.anything(), segment)
+    expect(result.blob).toBeInstanceOf(Blob)
   })
 })

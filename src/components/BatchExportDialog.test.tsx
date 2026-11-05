@@ -23,18 +23,18 @@ describe('BatchExportDialog', () => {
     fireEvent.change(input, { target: { value: 'event/2026-pictures' } })
     fireEvent.submit(input.closest('form')!)
 
-    expect(onConfirm).toHaveBeenCalledWith('event2026-pictures.zip', 'jpeg')
+    expect(onConfirm).toHaveBeenCalledWith('event2026-pictures.zip', 'jpeg', true)
   })
 
   it('appends .zip and falls back to the dated name when the field is empty', () => {
     const { onConfirm, input } = renderDialog()
     fireEvent.change(input, { target: { value: '   ' } })
     fireEvent.submit(input.closest('form')!)
-    expect(onConfirm).toHaveBeenLastCalledWith('framerly-2026-10-20.zip', 'jpeg')
+    expect(onConfirm).toHaveBeenLastCalledWith('framerly-2026-10-20.zip', 'jpeg', true)
 
     fireEvent.change(input, { target: { value: 'summer-recap' } })
     fireEvent.submit(input.closest('form')!)
-    expect(onConfirm).toHaveBeenLastCalledWith('summer-recap.zip', 'jpeg')
+    expect(onConfirm).toHaveBeenLastCalledWith('summer-recap.zip', 'jpeg', true)
   })
 
   it('exports lossless PNG when selected', () => {
@@ -44,7 +44,18 @@ describe('BatchExportDialog', () => {
     expect(screen.getByRole('radio', { name: /jpeg/i })).not.toBeChecked()
 
     fireEvent.submit(input.closest('form')!)
-    expect(onConfirm).toHaveBeenCalledWith('framerly-2026-10-20.zip', 'png')
+    expect(onConfirm).toHaveBeenCalledWith('framerly-2026-10-20.zip', 'png', true)
+  })
+
+  it('allows disabling EXIF preservation via the toggle', () => {
+    const { onConfirm, input } = renderDialog()
+    const toggle = screen.getByLabelText(/preserve original camera timestamps/i)
+    expect(toggle).toBeChecked()
+    fireEvent.click(toggle)
+    expect(toggle).not.toBeChecked()
+
+    fireEvent.submit(input.closest('form')!)
+    expect(onConfirm).toHaveBeenCalledWith('framerly-2026-10-20.zip', 'jpeg', false)
   })
 
   it('closes on Escape without exporting', () => {

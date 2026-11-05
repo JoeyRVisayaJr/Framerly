@@ -12,6 +12,8 @@ export interface WorkerRenderRequest {
   focalPoint?: FocalPoint
   adjustment?: AdjustmentInput
   format: PictureExportFormat
+  /** Preserved raw APP1 EXIF segment from the original Picture, re-injected into JPEG output. */
+  exifSegment?: Uint8Array | null
 }
 
 /** The Worker's reply: either the encoded Framed Picture or a named failure. */

@@ -4,6 +4,7 @@ import { renderFramedPictureFile, triggerDownloadDefault } from './pictureExport
 import type { PictureExportFormat } from './exportFormat'
 import type { AdjustmentInput, CropMode } from './framing'
 import type { StoredFrame } from './frameStore'
+import { extractExifFromBlob } from './exif'
 import type { FocalPoint } from './subjectDetection'
 import type { WorkerRenderRequest, WorkerRenderResponse } from './batchExportProtocol'
 
@@ -23,6 +24,8 @@ export interface RenderPictureJob {
   focalPoint?: FocalPoint
   adjustment?: AdjustmentInput
   format: PictureExportFormat
+  /** Preserved raw APP1 EXIF segment from the original Picture file. */
+  exifSegment?: Uint8Array | null
 }
 
 /** Renders Framed Pictures one at a time and can release its resources after a run. */
@@ -41,6 +44,8 @@ export interface BatchExportPicture {
   cropMode?: CropMode
   focalPoint?: FocalPoint
   adjustment?: AdjustmentInput
+  /** Preserved raw APP1 EXIF segment from the original Picture file. */
+  exifSegment?: Uint8Array | null
 }
 
 /** Input for one complete Batch Export. */
@@ -53,6 +58,8 @@ export interface BatchExportInput {
   format?: PictureExportFormat
   /** Aborting stops the run between Pictures and discards the partial archive. */
   signal?: AbortSignal
+  /** Re-inject preserved EXIF into JPEG Framed Pictures. Defaults to true. */
+  preserveExif?: boolean
 }
 
 /** Live rendering progress for the Batch Export progress bar. */
@@ -241,6 +248,7 @@ export function createWorkerPictureRenderer(): PictureRenderer | null {
           focalPoint: job.focalPoint,
           adjustment: job.adjustment,
           format: job.format,
+          exifSegment: job.exifSegment,
         }
         try {
           worker.postMessage(request)
@@ -275,6 +283,7 @@ export function createMainThreadPictureRenderer(): PictureRenderer {
         focalPoint: job.focalPoint,
         adjustment: job.adjustment,
         format: job.format,
+        exifSegment: job.exifSegment,
       })
       return blob
     },
@@ -356,6 +365,7 @@ export async function runBatchExport(
 
   const total = input.pictures.length
   const format = input.format ?? 'jpeg'
+  const preserveExif = input.preserveExif ?? true
   const usedNames = new Set<string>()
   const completed: Array<{ name: string; blob: Blob }> = []
   const failed: BatchExportFailure[] = []
@@ -371,6 +381,17 @@ export async function runBatchExport(
       onProgress?.({ processed, total, currentName: picture.name })
 
       try {
+        // Preserve original capture metadata when the toggle is on: use the
+        // ingested segment when present, otherwise extract it from the source
+        // file so main-thread and Worker renderers both see it.
+        const preserveSegment =
+          preserveExif && format === 'jpeg' ? picture.exifSegment ?? null : null
+        const exifSegment =
+          preserveExif && format === 'jpeg'
+            ? (preserveSegment ??
+              (await extractExifFromBlob(picture.file).catch(() => null))?.segment ??
+              null)
+            : null
         const blob = await renderer.render({
           file: picture.file,
           frame: input.frame,
@@ -378,6 +399,7 @@ export async function runBatchExport(
           focalPoint: picture.focalPoint,
           adjustment: picture.adjustment,
           format,
+          exifSegment,
         })
         const assigned = uniqueArchiveName(picture.name, usedNames)
         usedNames.add(assigned)

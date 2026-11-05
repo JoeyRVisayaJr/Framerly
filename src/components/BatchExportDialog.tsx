@@ -9,7 +9,7 @@ export interface BatchExportDialogProps {
   /** The Export button to focus when the dialog closes without exporting. */
   returnFocusTo?: HTMLElement | null
   /** Called with the sanitized archive name and this run's output format. */
-  onConfirm: (archiveName: string, format: PictureExportFormat) => void
+  onConfirm: (archiveName: string, format: PictureExportFormat, preserveExif?: boolean) => void
   /** Called on Escape or a backdrop click, without exporting. */
   onClose: () => void
 }
@@ -28,6 +28,7 @@ export function BatchExportDialog({
   const fallbackName = defaultArchiveName(now)
   const [name, setName] = useState(() => fallbackName.replace(/\.zip$/i, ''))
   const [format, setFormat] = useState<PictureExportFormat>('jpeg')
+  const [preserveExif, setPreserveExif] = useState(true)
   const dialogRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const handleDialogKeyDown = useModalDialog({
@@ -41,9 +42,9 @@ export function BatchExportDialog({
   const handleSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault()
-      onConfirm(sanitizeArchiveName(name, fallbackName), format)
+      onConfirm(sanitizeArchiveName(name, fallbackName), format, preserveExif)
     },
-    [fallbackName, format, name, onConfirm],
+    [fallbackName, format, name, onConfirm, preserveExif],
   )
 
   return (
@@ -111,6 +112,21 @@ export function BatchExportDialog({
               </label>
             </div>
           </fieldset>
+
+          {format === 'jpeg' && (
+            <div className="mt-4">
+              <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={preserveExif}
+                  onChange={(e) => setPreserveExif(e.target.checked)}
+                  className="accent-emerald-400"
+                  aria-label="Preserve original camera timestamps and metadata"
+                />
+                Preserve original camera timestamps and metadata
+              </label>
+            </div>
+          )}
 
           <div className="mt-5 flex justify-end gap-2">
             <button

@@ -4,6 +4,21 @@ import { useBatchIngest } from './useBatchIngest'
 import { decodePictureFile, type DecodedPicture } from './pictureDecode'
 
 vi.mock('./pictureDecode', () => ({ decodePictureFile: vi.fn() }))
+vi.mock('./exif', () => ({
+  extractExifFromBlob: vi.fn(async () => ({
+    segment: null,
+    metadata: {
+      make: null,
+      model: null,
+      dateTimeOriginal: null,
+      exposureTime: null,
+      fNumber: null,
+      iso: null,
+      focalLength: null,
+    },
+  })),
+  parseExifSegment: vi.fn(),
+}))
 
 const decoded: DecodedPicture = {
   name: 'a.jpg',
@@ -152,5 +167,29 @@ describe('useBatchIngest', () => {
     expect(broken.status).toBe('error')
     expect(broken.error).toContain('broken.jpg')
     expect(result.current.error).toBeNull()
+  })
+
+  it('preserves EXIF segment and metadata on the BatchPicture during ingest', async () => {
+    vi.mocked(decodePictureFile).mockImplementation(async (file) => ({
+      ...decoded,
+      name: file.name,
+      exifSegment: new Uint8Array([0x45, 0x78, 0x69, 0x66]),
+      exif: {
+        make: 'Canon',
+        model: 'EOS R5',
+        dateTimeOriginal: '2026:10:20 14:30:00',
+        exposureTime: '1/250',
+        fNumber: 2.8,
+        iso: 400,
+        focalLength: 50,
+      },
+    }))
+    const { result } = renderHook(() => useBatchIngest())
+    await act(async () => {
+      await result.current.addFiles([jpgFile('a.jpg')])
+    })
+    const picture = result.current.pictures[0]
+    expect(picture.exifSegment).toEqual(new Uint8Array([0x45, 0x78, 0x69, 0x66]))
+    expect(picture.exif?.dateTimeOriginal).toBe('2026:10:20 14:30:00')
   })
 })

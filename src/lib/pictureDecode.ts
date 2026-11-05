@@ -1,6 +1,7 @@
 import { calculateThumbnailSize, isHeicFile } from './batchIngest'
 import type { Size } from './framing'
 import { detectSubject, type FocalPoint } from './subjectDetection'
+import { extractExifFromBlob, type ExifMetadata } from './exif'
 
 export interface DecodedPicture {
   name: string
@@ -8,6 +9,8 @@ export interface DecodedPicture {
   height: number
   previewUrl: string
   focalPoint?: FocalPoint
+  exifSegment?: Uint8Array | null
+  exif?: ExifMetadata | null
 }
 
 interface BitmapLike {
@@ -86,7 +89,24 @@ export async function decodePictureFile(file: File, deps: PictureDecodeDeps = {}
       } catch {
         // Fall back to default focal point if detector fails
       }
-      return { name: file.name, width: size.width, height: size.height, previewUrl, focalPoint }
+      let exifSegment: Uint8Array | null = null
+      let exif: ExifMetadata | null = null
+      try {
+        const extracted = await extractExifFromBlob(file)
+        exifSegment = extracted.segment
+        exif = extracted.metadata
+      } catch {
+        // Non-JPEG or unreadable EXIF handled gracefully
+      }
+      return {
+        name: file.name,
+        width: size.width,
+        height: size.height,
+        previewUrl,
+        focalPoint,
+        exifSegment,
+        exif,
+      }
     } finally {
       bitmap.close?.()
     }

@@ -6,6 +6,7 @@ import {
   type BatchState,
 } from './batchState'
 import { decodePictureFile } from './pictureDecode'
+import { extractExifFromBlob } from './exif'
 import { DEFAULT_ADJUSTMENT, type AdjustmentInput } from './framing'
 
 export type { BatchPicture, BatchPictureStatus } from './batchState'
@@ -72,6 +73,21 @@ export function useBatchIngest() {
       file,
       adjustment: DEFAULT_ADJUSTMENT,
     }))
+    // Extract EXIF APP1 segments from JPEG files during ingest so the
+    // preserved metadata can be re-injected at export. Non-JPEG files
+    // (PNG, WebP, HEIC) return an empty segment without error.
+    for (const placeholder of placeholders) {
+      if (!placeholder.file) continue
+      try {
+        const extraction = await extractExifFromBlob(placeholder.file)
+        if (extraction.segment) {
+          placeholder.exifSegment = extraction.segment
+          placeholder.exif = extraction.metadata
+        }
+      } catch {
+        // Malformed or non-JPEG files simply carry no preserved metadata.
+      }
+    }
     setState((prev) => batchReducer(prev, { type: 'set', pictures: [...prev.pictures, ...placeholders] }))
     runsRef.current += 1
     setLoading(true)
@@ -102,6 +118,8 @@ export function useBatchIngest() {
                   previewUrl: settled.value.previewUrl,
                   status: 'ready' as const,
                   focalPoint: settled.value.focalPoint,
+                  exifSegment: settled.value.exifSegment ?? picture.exifSegment,
+                  exif: settled.value.exif ?? picture.exif,
                 }
               }
               return {

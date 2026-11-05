@@ -12,6 +12,11 @@ import {
 } from './batchExport'
 import type { StoredFrame } from './frameStore'
 
+vi.mock('./exif', () => ({
+  extractExifFromBlob: vi.fn(async () => ({ segment: null, metadata: {} })),
+  injectExifIntoBlob: vi.fn(async (blob: Blob) => blob),
+}))
+
 const frame: StoredFrame = {
   dataUrl: 'data:image/png;base64,FRAME',
   width: 1080,
@@ -269,6 +274,44 @@ describe('runBatchExport', () => {
       adjustment: { panX: 0.1, panY: 0, zoom: 1.5, rotation: 90 },
       frame,
     } satisfies Partial<RenderPictureJob>)
+  })
+
+  it('passes the preserved EXIF segment to the renderer when preservation is enabled', async () => {
+    const render = vi.fn(async (_job: RenderPictureJob) => new Blob(['out']))
+    const segment = new Uint8Array([0x45, 0x78, 0x69, 0x66])
+    await runBatchExport(
+      {
+        pictures: [{ ...picture('a.jpg'), exifSegment: segment }],
+        frame,
+        archiveName: 'batch.zip',
+      },
+      {
+        renderer: fakeRenderer(render),
+        createArchive: fakeArchive().createArchive,
+        triggerDownload: vi.fn(),
+      },
+    )
+    expect(render.mock.calls[0][0].exifSegment).toEqual(segment)
+  })
+
+  it('does not pass an EXIF segment to the renderer when preservation is disabled', async () => {
+    const render = vi.fn(async (_job: Record<string, unknown>) => new Blob(['out']))
+    await runBatchExport(
+      {
+        pictures: [
+          { ...picture('a.jpg'), exifSegment: new Uint8Array([0x45, 0x78, 0x69, 0x66]) },
+        ],
+        frame,
+        archiveName: 'batch.zip',
+        preserveExif: false,
+      },
+      {
+        renderer: fakeRenderer(render as never),
+        createArchive: fakeArchive().createArchive,
+        triggerDownload: vi.fn(),
+      },
+    )
+    expect(render.mock.calls[0][0].exifSegment).toBeNull()
   })
 })
 
