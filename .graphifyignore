@@ -1,0 +1,3 @@
+# Third-party agent skill docs vendored into the repo. Not Framerly domain
+# code, and they flooded the graph (1116 of 1709 nodes) when scanned.
+.agents/
