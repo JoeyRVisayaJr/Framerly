@@ -1,5 +1,5 @@
-import { detectAperture } from './aperture'
-import type { ApertureRect } from './framing'
+import { detectAperture } from '../aperture'
+import type { ApertureRect } from '../framing'
 
 const STORAGE_KEY = 'framerly.frame.v1'
 

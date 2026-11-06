@@ -10,7 +10,7 @@ import {
   type RenderPictureJob,
   type ZipArchiveWriter,
 } from './batchExport'
-import type { StoredFrame } from './frameStore'
+import type { StoredFrame } from './storage'
 
 vi.mock('./exif', () => ({
   extractExifFromBlob: vi.fn(async () => ({ segment: null, metadata: {} })),

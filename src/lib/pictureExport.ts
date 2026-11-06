@@ -1,5 +1,5 @@
 import { renderFramedPicture, type AdjustmentInput, type CropMode, type PictureSource, type Size } from './framing'
-import type { StoredFrame } from './frameStore'
+import type { StoredFrame } from './storage'
 import { convertHeicFile } from './pictureDecode'
 import { isHeicFile } from './batchIngest'
 import { exportEncodeOptions, type PictureExportFormat } from './exportFormat'

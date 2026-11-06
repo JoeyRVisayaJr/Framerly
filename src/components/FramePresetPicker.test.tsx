@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { FramePresetPicker } from './FramePresetPicker'
-import type { FramePreset } from '../lib/indexedDbFrameStore'
+import type { FramePreset } from '../lib/storage'
 
 const sampleBlob = new Blob([new Uint8Array(10)], { type: 'image/png' })
 

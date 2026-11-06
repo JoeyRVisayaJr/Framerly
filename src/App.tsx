@@ -1,24 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { AdjustmentModal } from './components/AdjustmentModal'
 import { BatchDropzone } from './components/BatchDropzone'
 import { BatchExportDialog } from './components/BatchExportDialog'
 import { BatchExportProgress } from './components/BatchExportProgress'
 import { FrameUploader } from './components/FrameUploader'
 import { VisualGrid } from './components/VisualGrid'
-import {
-  clearFrame,
-  decodeFrameFile,
-  isPngFile,
-  loadFrame,
-  saveFrame,
-  type StoredFrame,
-} from './lib/frameStore'
-import {
-  defaultFramePresetStore,
-  dataUrlToBlob,
-  type FramePreset,
-} from './lib/indexedDbFrameStore'
-import type { AdjustmentInput, ApertureRect, CropMode } from './lib/framing'
+import type { AdjustmentInput, CropMode } from './lib/framing'
 import { downloadFramedPicture } from './lib/pictureExport'
 import {
   runBatchExport,
@@ -28,7 +15,8 @@ import {
 } from './lib/batchExport'
 import type { PictureExportFormat } from './lib/exportFormat'
 import { isReadyPicture } from './lib/batchState'
-import { useBatchIngest } from './lib/useBatchIngest'
+import { useBatchIngest } from './hooks/useBatchIngest'
+import { useFrameManager } from './hooks/useFrameManager'
 
 function pictureCountLabel(count: number): string {
   return `${count} Picture${count === 1 ? '' : 's'}`
@@ -66,16 +54,20 @@ function describeBatchExportResult(result: BatchExportResult): string {
  * global Crop Mode toggle, and the Adjustment Modal for one Picture.
  */
 export default function App() {
-  const [presets, setPresets] = useState<FramePreset[]>([])
-  const [activePresetId, setActivePresetId] = useState<string | null>(null)
-  const [frame, setFrame] = useState<StoredFrame | null>(() => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      return loadFrame(window.localStorage)
-    }
-    return null
-  })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const {
+    frame,
+    presets,
+    activePresetId,
+    loading,
+    error,
+    handleSelect,
+    handleSelectPreset,
+    handleRenamePreset,
+    handleDeletePreset,
+    handleClear,
+    handleCalibrate,
+  } = useFrameManager()
+
   const [cropMode, setCropMode] = useState<CropMode>('crop-to-fill')
   const [adjustingId, setAdjustingId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -86,6 +78,7 @@ export default function App() {
   const [exportProgress, setExportProgress] = useState<BatchExportProgressState | null>(null)
   const [cancelRequested, setCancelRequested] = useState(false)
   const exportAbortRef = useRef<AbortController | null>(null)
+
   const {
     pictures,
     loading: batchLoading,
@@ -101,180 +94,6 @@ export default function App() {
   const readyPictures = pictures.filter(isReadyPicture)
   const batchExportDisabled =
     adjustingPicture !== null || batchLoading || exporting || !frame || readyPictures.length === 0
-
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      try {
-        const storedPresets = await defaultFramePresetStore.listPresets()
-        if (cancelled) return
-        if (storedPresets.length > 0) {
-          setPresets(storedPresets)
-          setActivePresetId(storedPresets[0].id)
-          setFrame(storedPresets[0])
-          return
-        }
-      } catch {
-        // Fall back to legacy localStorage
-      }
-
-      const legacy = loadFrame(window.localStorage)
-      if (legacy && !cancelled) {
-        setFrame(legacy)
-        try {
-          const blob = dataUrlToBlob(legacy.dataUrl)
-          const saved = await defaultFramePresetStore.savePreset({
-            name: `Frame ${legacy.width} x ${legacy.height}`,
-            width: legacy.width,
-            height: legacy.height,
-            aperture: legacy.aperture,
-            detectedAperture: legacy.detectedAperture,
-            calibrated: legacy.calibrated,
-            blob,
-            dataUrl: legacy.dataUrl,
-          })
-          if (!cancelled) {
-            setPresets([saved])
-            setActivePresetId(saved.id)
-          }
-        } catch {
-          // Ignore legacy migration error
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const handleSelect = useCallback(async (file: File, optionalName?: string) => {
-    if (!isPngFile(file)) {
-      setError(`Frame file ${file.name} must be a PNG file`)
-      return
-    }
-    setLoading(true)
-    setError(null)
-    try {
-      const decoded = await decodeFrameFile(file)
-      const baseName = file.name.replace(/\.[^/.]+$/, '')
-      const presetName =
-        optionalName?.trim() || baseName || `Frame ${decoded.width} x ${decoded.height}`
-
-      const savedPreset = await defaultFramePresetStore.savePreset({
-        name: presetName,
-        width: decoded.width,
-        height: decoded.height,
-        aperture: decoded.aperture,
-        detectedAperture: decoded.detectedAperture,
-        calibrated: decoded.calibrated,
-        blob: file,
-        dataUrl: decoded.dataUrl,
-      })
-
-      setPresets((current) => [...current.filter((p) => p.id !== savedPreset.id), savedPreset])
-      setActivePresetId(savedPreset.id)
-      setFrame(savedPreset)
-
-      try {
-        saveFrame(window.localStorage, savedPreset)
-      } catch {
-        // Ignore localStorage quota warnings since IndexedDB holds the high-res preset safely
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : `Could not decode Frame file ${file.name} as PNG`)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  const handleSelectPreset = useCallback(
-    (presetId: string) => {
-      const target = presets.find((p) => p.id === presetId)
-      if (target) {
-        setActivePresetId(target.id)
-        setFrame(target)
-        try {
-          saveFrame(window.localStorage, target)
-        } catch {
-          // Ignore localStorage quota errors
-        }
-      }
-    },
-    [presets],
-  )
-
-  const handleRenamePreset = useCallback(async (presetId: string, newName: string) => {
-    try {
-      const updated = await defaultFramePresetStore.updatePreset(presetId, { name: newName })
-      setPresets((current) => current.map((p) => (p.id === presetId ? updated : p)))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not rename Frame Preset')
-    }
-  }, [])
-
-  const handleDeletePreset = useCallback(
-    async (presetId: string) => {
-      try {
-        await defaultFramePresetStore.deletePreset(presetId)
-        setPresets((current) => {
-          const next = current.filter((p) => p.id !== presetId)
-          if (activePresetId === presetId) {
-            if (next.length > 0) {
-              setActivePresetId(next[0].id)
-              setFrame(next[0])
-            } else {
-              setActivePresetId(null)
-              setFrame(null)
-              clearFrame(window.localStorage)
-            }
-          }
-          return next
-        })
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Could not delete Frame Preset')
-      }
-    },
-    [activePresetId],
-  )
-
-  const handleClear = useCallback(() => {
-    clearFrame(window.localStorage)
-    setActivePresetId(null)
-    setFrame(null)
-    setError(null)
-  }, [])
-
-  const handleCalibrate = useCallback(
-    (calibratedAperture: ApertureRect) => {
-      setFrame((current) => {
-        if (!current) return null
-        const updated: StoredFrame = {
-          ...current,
-          aperture: calibratedAperture,
-          calibrated: true,
-        }
-        try {
-          saveFrame(window.localStorage, updated)
-        } catch {
-          // Ignore localStorage quota warning
-        }
-        return updated
-      })
-
-      if (activePresetId) {
-        void defaultFramePresetStore
-          .updatePreset(activePresetId, {
-            aperture: calibratedAperture,
-            calibrated: true,
-          })
-          .then((updated) => {
-            setPresets((current) => current.map((p) => (p.id === activePresetId ? updated : p)))
-          })
-      }
-    },
-    [activePresetId],
-  )
 
   const handleAdjust = useCallback(
     (adjustment: AdjustmentInput) => {

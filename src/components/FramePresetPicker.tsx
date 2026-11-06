@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import type { FramePreset } from '../lib/indexedDbFrameStore'
+import type { FramePreset } from '../lib/storage'
 
 /**
  * Properties for the FramePresetPicker component.

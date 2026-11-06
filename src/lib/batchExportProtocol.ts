@@ -1,6 +1,6 @@
 import type { PictureExportFormat } from './exportFormat'
 import type { AdjustmentInput, CropMode } from './framing'
-import type { StoredFrame } from './frameStore'
+import type { StoredFrame } from './storage'
 import type { FocalPoint } from './subjectDetection'
 
 /** One full-resolution render request sent to the Batch Export Worker. */

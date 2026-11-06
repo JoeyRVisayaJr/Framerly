@@ -7,7 +7,7 @@ import {
   type CalibrationHandle,
 } from '../lib/calibration'
 import type { ApertureRect } from '../lib/framing'
-import type { StoredFrame } from '../lib/frameStore'
+import type { StoredFrame } from '../lib/storage'
 
 export interface ApertureCalibratorProps {
   /** The Frame being calibrated. */

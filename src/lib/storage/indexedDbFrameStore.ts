@@ -1,4 +1,4 @@
-import type { ApertureRect } from './framing'
+import type { ApertureRect } from '../framing'
 
 const DB_NAME = 'framerly-frame-presets'
 const STORE_NAME = 'presets'

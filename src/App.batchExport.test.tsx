@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import { saveFrame } from './lib/frameStore'
+import { saveFrame } from './lib/storage'
 import { runBatchExport, type BatchExportResult } from './lib/batchExport'
 import { decodePictureFile } from './lib/pictureDecode'
 

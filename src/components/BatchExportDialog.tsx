@@ -1,7 +1,7 @@
 import { useCallback, useId, useRef, useState } from 'react'
 import { defaultArchiveName, sanitizeArchiveName } from '../lib/batchExport'
 import type { PictureExportFormat } from '../lib/exportFormat'
-import { useModalDialog } from './useModalDialog'
+import { useModalDialog } from '../hooks/useModalDialog'
 
 export interface BatchExportDialogProps {
   /** Date used for the default archive name. Defaults to today. */

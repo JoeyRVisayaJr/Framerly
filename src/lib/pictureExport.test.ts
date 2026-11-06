@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderFramedPictureFile, type PictureExportDeps } from './pictureExport'
-import type { StoredFrame } from './frameStore'
+import type { StoredFrame } from './storage'
 
 vi.mock('./exif', () => ({
   extractExifFromBlob: vi.fn(async () => ({ segment: null, metadata: {} })),

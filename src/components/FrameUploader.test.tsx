@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { FrameUploader } from './FrameUploader'
-import type { StoredFrame } from '../lib/frameStore'
+import type { StoredFrame } from '../lib/storage'
 
 const frame: StoredFrame = {
   dataUrl: 'data:image/png;base64,AAA',

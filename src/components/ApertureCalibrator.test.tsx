@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ApertureCalibrator } from './ApertureCalibrator'
-import type { StoredFrame } from '../lib/frameStore'
+import type { StoredFrame } from '../lib/storage'
 
 describe('ApertureCalibrator', () => {
   const detectedFrame: StoredFrame = {

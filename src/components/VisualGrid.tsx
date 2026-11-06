@@ -1,11 +1,11 @@
-import type { StoredFrame } from '../lib/frameStore'
+import type { StoredFrame } from '../lib/storage'
 import { useState } from 'react'
 import {
   calculatePreviewTransform,
   calculateCoverObjectPosition,
   type CropMode,
 } from '../lib/framing'
-import type { BatchPicture } from '../lib/useBatchIngest'
+import type { BatchPicture } from '../lib/batchState'
 import { Tooltip } from './Tooltip'
 
 interface VisualGridProps {

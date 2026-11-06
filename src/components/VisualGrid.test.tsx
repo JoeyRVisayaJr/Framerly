@@ -1,9 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { VisualGrid } from './VisualGrid'
-import type { StoredFrame } from '../lib/frameStore'
+import type { StoredFrame } from '../lib/storage'
 import type { Adjustment } from '../lib/framing'
-import type { BatchPicture } from '../lib/useBatchIngest'
+import type { BatchPicture } from '../lib/batchState'
 
 const frame: StoredFrame = {
   dataUrl: 'data:image/png;base64,FRAME',

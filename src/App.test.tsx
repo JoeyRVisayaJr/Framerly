@@ -1,8 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import { saveFrame } from './lib/frameStore'
-import { defaultFramePresetStore } from './lib/indexedDbFrameStore'
+import { defaultFramePresetStore, saveFrame } from './lib/storage'
 import { downloadFramedPicture } from './lib/pictureExport'
 
 vi.mock('./lib/pictureDecode', () => ({

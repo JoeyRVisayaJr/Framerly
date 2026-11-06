@@ -10,8 +10,8 @@ import {
   type CropMode,
 } from '../lib/framing'
 import type { BatchPicture } from '../lib/batchState'
-import type { StoredFrame } from '../lib/frameStore'
-import { useModalDialog } from './useModalDialog'
+import type { StoredFrame } from '../lib/storage'
+import { useModalDialog } from '../hooks/useModalDialog'
 
 export interface AdjustmentModalProps {
   picture: BatchPicture

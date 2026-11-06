@@ -1,7 +1,6 @@
 import { useId, useState } from 'react'
-import type { StoredFrame } from '../lib/frameStore'
+import type { FramePreset, StoredFrame } from '../lib/storage'
 import type { ApertureRect } from '../lib/framing'
-import type { FramePreset } from '../lib/indexedDbFrameStore'
 import { ApertureCalibrator } from './ApertureCalibrator'
 import { FramePresetPicker } from './FramePresetPicker'
 import { Tooltip } from './Tooltip'

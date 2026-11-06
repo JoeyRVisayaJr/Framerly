@@ -1,10 +1,10 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBatchIngest } from './useBatchIngest'
-import { decodePictureFile, type DecodedPicture } from './pictureDecode'
+import { decodePictureFile, type DecodedPicture } from '../lib/pictureDecode'
 
-vi.mock('./pictureDecode', () => ({ decodePictureFile: vi.fn() }))
-vi.mock('./exif', () => ({
+vi.mock('../lib/pictureDecode', () => ({ decodePictureFile: vi.fn() }))
+vi.mock('../lib/exif', () => ({
   extractExifFromBlob: vi.fn(async () => ({
     segment: null,
     metadata: {

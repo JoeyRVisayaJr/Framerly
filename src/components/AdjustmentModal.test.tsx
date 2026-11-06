@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { AdjustmentModal } from './AdjustmentModal'
 import type { BatchPicture } from '../lib/batchState'
-import type { StoredFrame } from '../lib/frameStore'
+import type { StoredFrame } from '../lib/storage'
 
 /**
  * jsdom does not implement PointerEvent. Dispatch a MouseEvent under the
