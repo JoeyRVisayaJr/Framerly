@@ -81,6 +81,7 @@ describe('useFrameManager', () => {
       height: 100,
       aperture: null,
       blob: new Blob(['x'], { type: 'image/png' }),
+      createdAt: 1000,
     })
     const preset2 = await presetStore.savePreset({
       name: 'Preset 2',
@@ -88,6 +89,7 @@ describe('useFrameManager', () => {
       height: 200,
       aperture: null,
       blob: new Blob(['y'], { type: 'image/png' }),
+      createdAt: 2000,
     })
 
     const { result } = renderHook(() => useFrameManager({ storage, presetStore }))
@@ -128,6 +130,7 @@ describe('useFrameManager', () => {
       height: 100,
       aperture: null,
       blob: new Blob(['x'], { type: 'image/png' }),
+      createdAt: 1000,
     })
     const p2 = await presetStore.savePreset({
       name: 'P2',
@@ -135,6 +138,7 @@ describe('useFrameManager', () => {
       height: 200,
       aperture: null,
       blob: new Blob(['y'], { type: 'image/png' }),
+      createdAt: 2000,
     })
 
     const { result } = renderHook(() => useFrameManager({ storage, presetStore }))

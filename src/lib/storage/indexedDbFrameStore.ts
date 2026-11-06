@@ -176,7 +176,9 @@ class InMemoryPresetStore implements FramePresetStore {
 
   async listPresets(): Promise<FramePreset[]> {
     const list: FramePreset[] = []
-    const sorted = [...this.records.values()].sort((a, b) => a.createdAt - b.createdAt)
+    const sorted = [...this.records.values()].sort((a, b) =>
+      a.createdAt !== b.createdAt ? a.createdAt - b.createdAt : a.id.localeCompare(b.id),
+    )
     for (const record of sorted) {
       const dataUrl = record.dataUrl ?? (await blobToDataUrl(record.blob))
       list.push(toFramePreset(record, dataUrl))
@@ -310,7 +312,9 @@ class IndexedDbPresetStore implements FramePresetStore {
 
           req.onsuccess = async () => {
             const records: StoredPresetRecord[] = req.result || []
-            records.sort((a, b) => a.createdAt - b.createdAt)
+            records.sort((a, b) =>
+              a.createdAt !== b.createdAt ? a.createdAt - b.createdAt : a.id.localeCompare(b.id),
+            )
             try {
               const presets = await Promise.all(
                 records.map(async (record) => {
