@@ -129,6 +129,13 @@ export async function blobToDataUrl(blob: Blob): Promise<string> {
   })
 }
 
+let lastTimestamp = 0
+function monotonicNow(): number {
+  const now = Date.now()
+  lastTimestamp = now > lastTimestamp ? now : lastTimestamp + 1
+  return lastTimestamp
+}
+
 function generatePresetId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -196,7 +203,7 @@ class InMemoryPresetStore implements FramePresetStore {
   async savePreset(input: FramePresetInput): Promise<FramePreset> {
     const id = input.id ?? generatePresetId()
     const name = input.name?.trim() || defaultPresetName(input.width, input.height)
-    const createdAt = input.createdAt ?? Date.now()
+    const createdAt = input.createdAt ?? monotonicNow()
     const calibrated = input.calibrated ?? false
     const dataUrl = input.dataUrl ?? (await blobToDataUrl(input.blob))
 
@@ -367,7 +374,7 @@ class IndexedDbPresetStore implements FramePresetStore {
       async (db) => {
         const id = input.id ?? generatePresetId()
         const name = input.name?.trim() || defaultPresetName(input.width, input.height)
-        const createdAt = input.createdAt ?? Date.now()
+        const createdAt = input.createdAt ?? monotonicNow()
         const calibrated = input.calibrated ?? false
         const dataUrl = input.dataUrl ?? (await blobToDataUrl(input.blob))
 

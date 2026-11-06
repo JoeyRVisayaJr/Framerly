@@ -154,6 +154,7 @@ describe('App Batch and Adjustment wiring', () => {
       aperture: { x: 120, y: 200, width: 840, height: 1260 },
       blob,
       dataUrl: 'data:image/png;base64,STORY',
+      createdAt: 1000,
     })
 
     await defaultFramePresetStore.savePreset({
@@ -163,6 +164,7 @@ describe('App Batch and Adjustment wiring', () => {
       aperture: { x: 108, y: 108, width: 864, height: 864 },
       blob,
       dataUrl: 'data:image/png;base64,SQUARE',
+      createdAt: 2000,
     })
 
     render(<App />)
